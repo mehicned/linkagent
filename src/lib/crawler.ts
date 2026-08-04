@@ -29,25 +29,47 @@ async function fetchText(url: string, accept: string): Promise<{ text: string; c
   }
 }
 
-// Minimal robots.txt handling: honor Disallow lines for * and for our bot.
-async function loadRobots(origin: string): Promise<(path: string) => boolean> {
+// robots.txt handling with real wildcard support. Patterns like /*?* and
+// /*.json$ are common, and treating them as prefix rules would wrongly
+// block entire sites. Allow and Disallow compete by specificity, the way
+// Google resolves them.
+function robotsRuleToRegex(rule: string): RegExp {
+  const anchored = rule.endsWith("$");
+  const body = (anchored ? rule.slice(0, -1) : rule)
+    .split("*")
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  return new RegExp("^" + body + (anchored ? "$" : ""));
+}
+
+async function loadRobots(origin: string): Promise<(pathAndQuery: string) => boolean> {
   const res = await fetchText(`${origin}/robots.txt`, "text/plain");
   if (!res) return () => true;
-  const disallowed: string[] = [];
+  const rules: { allow: boolean; regex: RegExp; specificity: number }[] = [];
   let applies = false;
   for (const raw of res.text.split("\n")) {
     const line = raw.split("#")[0].trim();
-    const [key, ...rest] = line.split(":");
-    const value = rest.join(":").trim();
-    if (!key || value === undefined) continue;
-    const k = key.toLowerCase();
-    if (k === "user-agent") {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+    if (key === "user-agent") {
       applies = value === "*" || /linkagent/i.test(value);
-    } else if (applies && k === "disallow" && value) {
-      disallowed.push(value);
+    } else if (applies && (key === "disallow" || key === "allow") && value) {
+      try {
+        rules.push({ allow: key === "allow", regex: robotsRuleToRegex(value), specificity: value.length });
+      } catch {
+        /* skip malformed patterns */
+      }
     }
   }
-  return (path: string) => !disallowed.some((rule) => path.startsWith(rule.replace(/\*.*$/, "")));
+  return (pathAndQuery: string) => {
+    let best: { allow: boolean; specificity: number } | null = null;
+    for (const r of rules) {
+      if (r.regex.test(pathAndQuery) && (!best || r.specificity > best.specificity)) best = r;
+    }
+    return !best || best.allow;
+  };
 }
 
 async function loadSitemap(origin: string, depth = 0): Promise<string[]> {
@@ -232,7 +254,7 @@ export async function crawlSite(
       parsed.protocol = start.protocol;
       const norm = normalizeUrl(parsed);
       if (seen.has(norm)) return;
-      if (!allowed(parsed.pathname)) return;
+      if (!allowed(parsed.pathname + parsed.search)) return;
       if (isExcluded?.(parsed.pathname)) return;
       seen.add(norm);
       queue.push(norm);
