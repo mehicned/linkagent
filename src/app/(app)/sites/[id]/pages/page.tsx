@@ -88,10 +88,23 @@ export default function PagesPage() {
           {sorted.map((p) => (
             <tr key={p.id} className="border-b border-line/50 last:border-0 hover:bg-panel2/40">
               <td className="max-w-[340px] px-4 py-2.5">
-                <div className="truncate font-medium" title={p.title}>
-                  {p.title || p.path}
-                </div>
-                <div className="mono truncate text-xs text-faint">{p.path}</div>
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="group block" title={p.title}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-medium underline-offset-4 group-hover:underline">
+                      {p.title || p.path}
+                    </span>
+                    <svg
+                      viewBox="0 0 20 20"
+                      className="h-3 w-3 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <path d="M8 5h7v7m0-7L7 13" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div className="mono truncate text-xs text-faint">{p.path}</div>
+                </a>
               </td>
               <td className="num px-4 py-2.5 text-muted">{p.wordCount.toLocaleString()}</td>
               <td className="px-4 py-2.5">
