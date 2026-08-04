@@ -95,6 +95,29 @@
     else setTimeout(fn, 32);
   }
 
+  // Opened from the dashboard's "View live" button (#la=<anchor>): scroll to
+  // the injected link and flash it so it is easy to spot.
+  function highlightFromHash() {
+    var h = location.hash || "";
+    if (h.indexOf("#la=") !== 0) return;
+    var wanted;
+    try { wanted = decodeURIComponent(h.slice(4).split(":~:")[0]).toLowerCase(); } catch (e) { return; }
+    var links = doc.querySelectorAll("a[data-la]");
+    for (var i = 0; i < links.length; i++) {
+      var el = links[i];
+      if ((el.textContent || "").trim().toLowerCase() !== wanted) continue;
+      try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { el.scrollIntoView(); }
+      var prev = el.style.cssText;
+      el.style.cssText = prev + ";background:rgba(132,204,22,.32);outline:2px solid #84cc16;outline-offset:2px;border-radius:3px;transition:background .7s ease,outline-color .7s ease";
+      setTimeout(function () {
+        el.style.background = "transparent";
+        el.style.outlineColor = "transparent";
+        setTimeout(function () { el.style.cssText = prev; }, 800);
+      }, 2400);
+      return;
+    }
+  }
+
   var lastPath = null;
   function run() {
     var p = location.pathname.replace(/\/+$/, "") || "/";
@@ -103,7 +126,10 @@
     fetch(api + "/api/map/" + encodeURIComponent(key) + "?p=" + encodeURIComponent(p))
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        if (data && data.rules && data.rules.length) whenIdle(function () { inject(data.rules); });
+        whenIdle(function () {
+          if (data && data.rules && data.rules.length) inject(data.rules);
+          highlightFromHash();
+        });
       })
       .catch(function () {});
   }

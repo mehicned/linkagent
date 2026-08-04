@@ -690,7 +690,7 @@ function OppCard({
           <ScoreBar score={score} />
           {(opp.status === "approved" || (site.mode === "auto" && opp.status === "suggested")) && (
             <a
-              href={`${site.url}${from?.path ?? ""}#:~:text=${encodeURIComponent(match || opp.anchor)}`}
+              href={`${site.url}${from?.path ?? ""}#la=${encodeURIComponent(match || opp.anchor)}:~:text=${encodeURIComponent(match || opp.anchor)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-ghost btn-sm"
