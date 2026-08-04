@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSiteData } from "../site-shared";
 
 interface GscSummary {
@@ -203,49 +203,217 @@ function DeltaStat({
   );
 }
 
-function GscChart({ daily, firstPingAt }: { daily: GscDaily[]; firstPingAt: number | null }) {
+type Metric = "clicks" | "impressions" | "ctr" | "position";
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: "clicks", label: "Clicks" },
+  { key: "impressions", label: "Impressions" },
+  { key: "ctr", label: "CTR" },
+  { key: "position", label: "Position" },
+];
+const RANGES = [
+  { days: 28, label: "28d" },
+  { days: 60, label: "60d" },
+  { days: 90, label: "90d" },
+  { days: 9999, label: "All" },
+];
+
+function fmtMetric(metric: Metric, v: number): string {
+  if (metric === "ctr") return `${(v * 100).toFixed(1)}%`;
+  if (metric === "position") return v.toFixed(1);
+  return Math.round(v).toLocaleString();
+}
+
+function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstPingAt: number | null }) {
+  const [metric, setMetric] = useState<Metric>("clicks");
+  const [range, setRange] = useState(9999);
+  const [hover, setHover] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const daily = range >= fullDaily.length ? fullDaily : fullDaily.slice(-range);
+
   if (daily.length < 2) {
     return <div className="card p-10 text-center text-sm text-muted">Not enough search data yet.</div>;
   }
+
   const W = 600;
-  const H = 150;
-  const maxClicks = Math.max(...daily.map((d) => d.clicks), 1);
+  const H = 170;
+  const PAD_TOP = 10;
+  const PAD_BOTTOM = 16;
+
+  const values = daily.map((d) => d[metric]);
+  // Position charts read better inverted: ranking closer to #1 plots higher.
+  const inverted = metric === "position";
+  const rawMax = Math.max(...values, metric === "ctr" ? 0.01 : 1);
+  const rawMin = inverted ? Math.min(...values) : 0;
+  const span = Math.max(rawMax - rawMin, 1e-6);
+
   const x = (i: number) => (i / (daily.length - 1)) * W;
-  const y = (clicks: number) => H - 12 - (clicks / maxClicks) * (H - 30);
-  const points = daily.map((d, i) => `${x(i).toFixed(1)},${y(d.clicks).toFixed(1)}`).join(" ");
+  const y = (v: number) => {
+    const ratio = (v - rawMin) / span;
+    const r = inverted ? 1 - ratio : ratio;
+    return H - PAD_BOTTOM - r * (H - PAD_TOP - PAD_BOTTOM);
+  };
+
+  const points = daily.map((d, i) => `${x(i).toFixed(1)},${y(d[metric]).toFixed(1)}`).join(" ");
   const splitDate = firstPingAt ? new Date(firstPingAt).toISOString().slice(0, 10) : null;
   const splitIndex = splitDate ? daily.findIndex((d) => d.date >= splitDate) : -1;
 
+  const gridLines = [0.25, 0.5, 0.75].map((r) => ({
+    yPos: H - PAD_BOTTOM - r * (H - PAD_TOP - PAD_BOTTOM),
+    value: inverted ? rawMax - r * span : rawMin + r * span,
+  }));
+
+  function indexFromEvent(clientX: number): number {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return 0;
+    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    return Math.round(ratio * (daily.length - 1));
+  }
+
+  const hovered = hover !== null ? daily[hover] : null;
+  const hoverLeftPct = hover !== null ? (hover / (daily.length - 1)) * 100 : 0;
+
   return (
     <div className="card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Daily clicks, last {daily.length} days</h3>
-        {splitIndex >= 0 && (
-          <span className="chip">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            script live
-          </span>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1.5">
+          {METRICS.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMetric(m.key)}
+              className={`chip transition-colors ${
+                metric === m.key ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          {splitIndex >= 0 && (
+            <span className="chip">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              script live
+            </span>
+          )}
+          <div className="flex gap-1.5">
+            {RANGES.map((r) => (
+              <button
+                key={r.days}
+                onClick={() => setRange(r.days)}
+                className={`chip num transition-colors ${
+                  range === r.days ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div
+        ref={wrapRef}
+        className="relative cursor-crosshair select-none"
+        onMouseMove={(e) => setHover(indexFromEvent(e.clientX))}
+        onMouseLeave={() => setHover(null)}
+        onTouchStart={(e) => setHover(indexFromEvent(e.touches[0].clientX))}
+        onTouchMove={(e) => setHover(indexFromEvent(e.touches[0].clientX))}
+        onTouchEnd={() => setHover(null)}
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" aria-hidden>
+          {gridLines.map((g) => (
+            <line
+              key={g.yPos}
+              x1="0"
+              y1={g.yPos}
+              x2={W}
+              y2={g.yPos}
+              stroke="rgba(140,150,200,0.09)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {!inverted && (
+            <polyline
+              points={`0,${H - PAD_BOTTOM} ${points} ${W},${H - PAD_BOTTOM}`}
+              fill="rgba(132, 204, 22, 0.08)"
+              stroke="none"
+            />
+          )}
+          <polyline points={points} fill="none" stroke="#84cc16" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+          {splitIndex >= 0 && (
+            <line
+              x1={x(splitIndex)}
+              y1={PAD_TOP - 6}
+              x2={x(splitIndex)}
+              y2={H - PAD_BOTTOM}
+              stroke="#84cc16"
+              strokeWidth="1"
+              strokeDasharray="4 3"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
+          {hover !== null && (
+            <>
+              <line
+                x1={x(hover)}
+                y1={PAD_TOP - 6}
+                x2={x(hover)}
+                y2={H - PAD_BOTTOM}
+                stroke="rgba(233,235,245,0.35)"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+              <circle cx={x(hover)} cy={y(daily[hover][metric])} r="3.5" fill="#84cc16" stroke="#09090b" strokeWidth="1.5" />
+            </>
+          )}
+        </svg>
+
+        {/* y-axis labels overlaid so the svg can stretch freely */}
+        <div className="pointer-events-none absolute inset-0">
+          {gridLines.map((g) => (
+            <span
+              key={g.yPos}
+              className="num absolute left-0 text-[9.5px] text-faint"
+              style={{ top: `${(g.yPos / H) * 100}%`, transform: "translateY(-110%)" }}
+            >
+              {fmtMetric(metric, g.value)}
+            </span>
+          ))}
+        </div>
+
+        {hovered && (
+          <div
+            className="pointer-events-none absolute top-0 z-10 -translate-y-1 rounded-lg border border-line2 bg-panel px-3 py-2 shadow-xl"
+            style={{
+              left: `${hoverLeftPct}%`,
+              transform: `translateX(${hoverLeftPct > 65 ? "-105%" : "8px"})`,
+            }}
+          >
+            <p className="num text-xs font-medium">{hovered.date}</p>
+            <div className="mt-1 space-y-0.5 text-[11px] whitespace-nowrap">
+              <p className={metric === "clicks" ? "text-accent" : "text-muted"}>
+                Clicks <span className="num font-medium text-body">{hovered.clicks.toLocaleString()}</span>
+              </p>
+              <p className={metric === "impressions" ? "text-accent" : "text-muted"}>
+                Impressions <span className="num font-medium text-body">{hovered.impressions.toLocaleString()}</span>
+              </p>
+              <p className={metric === "ctr" ? "text-accent" : "text-muted"}>
+                CTR <span className="num font-medium text-body">{(hovered.ctr * 100).toFixed(1)}%</span>
+              </p>
+              <p className={metric === "position" ? "text-accent" : "text-muted"}>
+                Position <span className="num font-medium text-body">{hovered.position.toFixed(1)}</span>
+              </p>
+            </div>
+          </div>
         )}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" aria-hidden>
-        <polyline points={`0,${H} ${points} ${W},${H}`} fill="rgba(132, 204, 22, 0.08)" stroke="none" />
-        <polyline points={points} fill="none" stroke="#84cc16" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
-        {splitIndex >= 0 && (
-          <line
-            x1={x(splitIndex)}
-            y1="4"
-            x2={x(splitIndex)}
-            y2={H}
-            stroke="#84cc16"
-            strokeWidth="1"
-            strokeDasharray="4 3"
-            vectorEffect="non-scaling-stroke"
-          />
-        )}
-      </svg>
+
       <div className="mt-1.5 flex justify-between text-[10.5px] text-faint">
-        <span>{daily[0].date}</span>
-        <span>{daily[daily.length - 1].date}</span>
+        <span className="num">{daily[0].date}</span>
+        <span className="num">{daily[daily.length - 1].date}</span>
       </div>
     </div>
   );
