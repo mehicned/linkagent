@@ -95,18 +95,16 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
     if (res.ok) setData(await res.json());
   }, [id, router]);
 
+  // Poll for as long as the page is open. Every state change (discovery
+  // finishing, crawl progress, analysis completing, autopilot re-crawls)
+  // shows up on its own within two seconds, no manual refresh ever.
   useEffect(() => {
     load();
+    const t = setInterval(load, 2000);
+    return () => clearInterval(t);
   }, [load]);
 
   const status = data?.site.status;
-
-  useEffect(() => {
-    if (status === "queued" || status === "crawling" || status === "analyzing") {
-      const t = setInterval(load, 1500);
-      return () => clearInterval(t);
-    }
-  }, [status, load]);
 
   if (!data) {
     return <div className="pt-24 text-center text-faint text-sm">Loading...</div>;
