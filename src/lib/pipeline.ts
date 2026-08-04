@@ -3,7 +3,7 @@ import { db, sites, pages, existingLinks, clusters, opportunities } from "./db";
 import { crawlSite, makeExclusionCheck, type SiteSection } from "./crawler";
 import { analyzePages, graphStats } from "./analyze";
 import { findOpportunities } from "./opportunities";
-import { refineWithAI } from "./ai";
+import { refineWithAI, clusterWithAI } from "./ai";
 import { normalizePhrase } from "./text";
 
 const running = new Set<number>();
@@ -97,9 +97,33 @@ export async function runPipeline(siteId: number): Promise<void> {
     const homeIndex = crawled.findIndex((p) => p.path === "/");
     const stats = graphStats(crawled.length, contentEdges, allEdges, homeIndex);
 
+    // Claude reads titles and clusters far better than the similarity
+    // graph, which tends to merge a whole site into one blob. Falls back
+    // to the heuristic clusters without an API key.
+    let finalClusters = analysis.clusters;
+    let clusterOfPage = analysis.clusterOfPage;
+    const aiClusters = await clusterWithAI(
+      crawled.map((p, i) => ({ path: p.path, title: p.title || p.h1, terms: analysis.topTermsPerPage[i] })),
+    );
+    if (aiClusters) {
+      finalClusters = aiClusters.map((c) => {
+        const counts = new Map<string, number>();
+        for (const m of c.members) {
+          for (const t of analysis.topTermsPerPage[m].slice(0, 6)) counts.set(t, (counts.get(t) ?? 0) + 1);
+        }
+        const terms = [...counts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([t]) => t);
+        return { label: c.label, terms, members: c.members };
+      });
+      clusterOfPage = Array(crawled.length).fill(null);
+      finalClusters.forEach((c, ci) => c.members.forEach((m) => (clusterOfPage[m] = ci)));
+    }
+
     // Insert clusters first to get their DB ids.
     const clusterDbIds: number[] = [];
-    for (const c of analysis.clusters) {
+    for (const c of finalClusters) {
       const [row] = await db
         .insert(clusters)
         .values({ siteId, label: c.label, terms: JSON.stringify(c.terms), size: c.members.length })
@@ -117,7 +141,7 @@ export async function runPipeline(siteId: number): Promise<void> {
         .values(
           slice.map((p, offset) => {
             const i = start + offset;
-            const clusterIdx = analysis.clusterOfPage[i];
+            const clusterIdx = clusterOfPage[i];
             return {
               siteId,
               url: p.url,

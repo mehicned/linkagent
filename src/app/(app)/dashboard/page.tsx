@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Favicon } from "@/components/Sidebar";
 
 interface SiteRow {
   id: number;
@@ -100,7 +101,10 @@ export default function DashboardPage() {
           {sites.map((s) => (
             <Link key={s.id} href={`/sites/${s.id}`} className="card card-hover block p-5">
               <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-[15px] truncate">{s.name}</span>
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Favicon host={s.host} className="h-5 w-5" />
+                  <span className="font-medium text-[15px] truncate">{s.name}</span>
+                </span>
                 <StatusChip status={s.status} />
               </div>
               <p className="mt-0.5 text-xs text-faint truncate mono">{s.url}</p>

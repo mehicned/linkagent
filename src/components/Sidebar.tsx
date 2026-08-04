@@ -9,7 +9,20 @@ import { useSession, signOut } from "@/lib/auth-client";
 interface SiteRow {
   id: number;
   name: string;
+  host: string;
   status: string;
+}
+
+export function Favicon({ host, className = "h-4 w-4" }: { host: string; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`}
+      alt=""
+      className={`${className} shrink-0 rounded-[3px]`}
+      loading="lazy"
+    />
+  );
 }
 
 const DOT: Record<string, string> = {
@@ -86,8 +99,9 @@ export function Sidebar() {
                 active ? "bg-panel2 text-body font-medium" : "text-muted hover:bg-panel2/60 hover:text-body"
               }`}
             >
+              <Favicon host={s.host} className="h-4 w-4" />
+              <span className="flex-1 truncate">{s.name}</span>
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[s.status] ?? "bg-faint"}`} />
-              <span className="truncate">{s.name}</span>
             </Link>
           );
         })}

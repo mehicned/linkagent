@@ -59,6 +59,7 @@ interface Opp {
 }
 interface SiteData {
   site: Site;
+  plan: "free" | "starter" | "pro";
   pages: PageRow[];
   clusters: ClusterRow[];
   opportunities: Opp[];
@@ -110,7 +111,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
     return <div className="pt-24 text-center text-faint text-sm">Loading...</div>;
   }
 
-  const { site, pages, clusters, opportunities, existingLinkCount } = data;
+  const { site, plan, pages, clusters, opportunities, existingLinkCount } = data;
   const working = status === "queued" || status === "crawling" || status === "analyzing";
   const suggested = opportunities.filter((o) => o.status === "suggested").length;
   const approved = opportunities.filter((o) => o.status === "approved").length;
@@ -179,6 +180,26 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
 
       {status === "ready" && (
         <>
+          {!site.firstPingAt && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/50 bg-accent/10 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent">
+                  <svg viewBox="0 0 20 20" className="h-4.5 w-4.5 h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M10 6.5v4.5m0 3v.01M10 2.5 2 16h16L10 2.5Z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-medium">Your links are not live yet</p>
+                  <p className="text-xs text-muted">
+                    Add the script to {site.host} and approved links start appearing on your pages.
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setTab("install")} className="btn btn-primary btn-sm">
+                Get the script
+              </button>
+            </div>
+          )}
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
             <BigStat label="Pages" value={pages.length} />
             <BigStat label="In-text links" value={existingLinkCount} />
@@ -214,7 +235,9 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
             )}
             {tab === "pages" && <PagesTable pages={pages} clusters={clusters} />}
             {tab === "clusters" && <Clusters clusters={clusters} pages={pages} />}
-            {tab === "install" && <Install site={site} reload={load} approved={approved} suggested={suggested} />}
+            {tab === "install" && (
+              <Install site={site} plan={plan} reload={load} approved={approved} suggested={suggested} />
+            )}
           </div>
         </>
       )}
@@ -393,8 +416,8 @@ function SectionsSetup({ site, reload }: { site: Site; reload: () => void }) {
             <span>
               <span className="block text-sm font-medium">Autopilot</span>
               <span className="block text-xs text-muted">
-                New links go live without approval, and the site re-crawls daily so new posts get linked
-                automatically. You can reject any link later.
+                New links go live without approval, and the site re-crawls on a schedule so new posts get
+                linked automatically. You can reject any link later.
               </span>
             </span>
           </button>
@@ -484,20 +507,25 @@ function Opportunities({
   pageById: Map<number, PageRow>;
   reload: () => void;
 }) {
-  const [filter, setFilter] = useState<"suggested" | "approved" | "rejected">("suggested");
+  const [filter, setFilter] = useState<"all" | "suggested" | "approved" | "rejected">("all");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // The default view shows everything: suggestions needing a decision come
+  // first, live approved links next, rejected last. One click narrows down.
+  const STATUS_ORDER: Record<string, number> = { suggested: 0, approved: 1, rejected: 2 };
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return opps
-      .filter((o) => o.status === filter)
+      .filter((o) => filter === "all" || o.status === filter)
       .filter((o) => {
         if (!q) return true;
         const from = pageById.get(o.fromPageId)?.path ?? "";
         const to = pageById.get(o.toPageId)?.path ?? "";
         return (o.anchor + from + to).toLowerCase().includes(q);
-      });
+      })
+      .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.score - a.score);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opps, filter, query, pageById]);
 
   async function setStatus(oppId: number, status: string) {
@@ -521,6 +549,7 @@ function Opportunities({
   }
 
   const counts = {
+    all: opps.length,
     suggested: opps.filter((o) => o.status === "suggested").length,
     approved: opps.filter((o) => o.status === "approved").length,
     rejected: opps.filter((o) => o.status === "rejected").length,
@@ -530,7 +559,7 @@ function Opportunities({
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1.5">
-          {(["suggested", "approved", "rejected"] as const).map((f) => (
+          {(["all", "suggested", "approved", "rejected"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -549,9 +578,9 @@ function Opportunities({
             placeholder="Filter by anchor or path"
             className="card w-56 rounded-lg px-3 py-1.5 text-sm outline-none placeholder:text-faint focus:border-line2"
           />
-          {filter === "suggested" && counts.suggested > 0 && (
+          {(filter === "all" || filter === "suggested") && counts.suggested > 0 && (
             <button onClick={approveAll} disabled={busy} className="btn btn-primary btn-sm">
-              Approve all
+              Approve all suggested
             </button>
           )}
         </div>
@@ -559,7 +588,7 @@ function Opportunities({
 
       {filtered.length === 0 ? (
         <div className="card p-10 text-center text-sm text-muted">
-          {filter === "suggested" ? "No suggestions here. Approve or re-crawl to get more." : `Nothing ${filter} yet.`}
+          {filter === "all" ? "No link opportunities yet. Re-crawl to look again." : `Nothing ${filter} yet.`}
         </div>
       ) : (
         <div className="space-y-3">
@@ -601,10 +630,17 @@ function OppCard({
     setTimeout(() => setCopied(false), 1500);
   }
 
+  const statusDot =
+    opp.status === "approved" ? "bg-good" : opp.status === "rejected" ? "bg-bad" : "bg-accent";
+
   return (
-    <div className="card p-5">
+    <div className={`card p-5 ${opp.status === "rejected" ? "opacity-55" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2 text-sm">
+          <span className="chip capitalize shrink-0">
+            <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
+            {opp.status === "approved" ? "Live" : opp.status}
+          </span>
           <span className="mono truncate max-w-[220px] text-faint" title={from?.path}>
             {from?.path}
           </span>
@@ -765,13 +801,22 @@ function Clusters({ clusters, pages }: { clusters: ClusterRow[]; pages: PageRow[
   );
 }
 
+const REFRESH_OPTIONS: { hours: number; label: string; minPlan: "free" | "starter" | "pro" }[] = [
+  { hours: 24, label: "Daily", minPlan: "pro" },
+  { hours: 168, label: "Weekly", minPlan: "starter" },
+  { hours: 720, label: "Monthly", minPlan: "free" },
+];
+const PLAN_RANK = { free: 0, starter: 1, pro: 2 };
+
 function Install({
   site,
+  plan,
   reload,
   approved,
   suggested,
 }: {
   site: Site;
+  plan: "free" | "starter" | "pro";
   reload: () => void;
   approved: number;
   suggested: number;
@@ -801,8 +846,8 @@ function Install({
   const live = site.mode === "auto" ? approved + suggested : approved;
 
   return (
-    <div className="grid items-start gap-4 md:grid-cols-2">
-      <div className="card p-6">
+    <div className="grid gap-4 md:grid-cols-2 md:auto-rows-fr">
+      <div className="card flex h-full flex-col p-6">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[15.5px] font-medium">Add the script</h3>
           {site.firstPingAt ? (
@@ -833,7 +878,7 @@ function Install({
         </p>
       </div>
 
-      <div className="card p-6">
+      <div className="card flex h-full flex-col p-6">
         <h3 className="text-[15.5px] font-medium">Serving mode</h3>
         <p className="mt-1 text-sm text-muted">
           Right now <span className="num font-medium text-body">{live}</span> link{live === 1 ? "" : "s"} would go live
@@ -855,7 +900,7 @@ function Install({
         </div>
       </div>
 
-      <div className="card p-6">
+      <div className="card flex h-full flex-col p-6">
         <h3 className="text-[15.5px] font-medium">Automation</h3>
         <p className="mt-1 text-sm text-muted">
           Keep the map fresh without touching this dashboard. New posts get linked to and from on every refresh, and
@@ -888,24 +933,32 @@ function Install({
             <div className="flex items-center justify-between gap-4">
               <p className="text-sm font-medium">Refresh every</p>
               <div className="flex gap-1.5">
-                {(
-                  [
-                    [6, "6 hours"],
-                    [24, "Day"],
-                    [72, "3 days"],
-                    [168, "Week"],
-                  ] as [number, string][]
-                ).map(([hours, label]) => (
-                  <button
-                    key={hours}
-                    onClick={() => patch({ refreshHours: hours })}
-                    className={`chip transition-colors ${
-                      site.refreshHours === hours ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+                {REFRESH_OPTIONS.map((o) => {
+                  const locked = PLAN_RANK[plan] < PLAN_RANK[o.minPlan];
+                  const active = site.refreshHours === o.hours;
+                  return (
+                    <button
+                      key={o.hours}
+                      onClick={() => !locked && patch({ refreshHours: o.hours })}
+                      disabled={locked}
+                      title={locked ? `Needs the ${o.minPlan} plan` : undefined}
+                      className={`chip transition-colors ${
+                        active
+                          ? "border-line2 bg-panel2 text-body"
+                          : locked
+                            ? "cursor-not-allowed opacity-50"
+                            : "hover:border-line2 hover:text-body"
+                      }`}
+                    >
+                      {locked && (
+                        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6">
+                          <path d="M4.5 7V5.5a3.5 3.5 0 0 1 7 0V7m-8 0h9v6h-9V7Z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      {o.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -931,7 +984,7 @@ function Install({
         </div>
       </div>
 
-      <div className="card p-6">
+      <div className="card flex h-full flex-col p-6">
         <h3 className="text-[15.5px] font-medium">Prefer server side?</h3>
         <p className="mt-1 text-sm text-muted">
           Fetch the full map as JSON and apply links in your templates or CMS. Same rules, zero client JS.

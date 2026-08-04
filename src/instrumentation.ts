@@ -11,6 +11,7 @@ export async function register() {
   const { db, sites } = await import("@/lib/db");
   const { runPipeline } = await import("@/lib/pipeline");
   const { eq } = await import("drizzle-orm");
+  const { getUserPlan, clampRefreshHours } = await import("@/lib/plans");
 
   const tick = async () => {
     try {
@@ -18,7 +19,8 @@ export async function register() {
       const now = Date.now();
       for (const site of all) {
         if (site.status !== "ready") continue;
-        const due = !site.lastCrawlAt || now - site.lastCrawlAt > site.refreshHours * 3600 * 1000;
+        const hours = clampRefreshHours(getUserPlan(site.userId), site.refreshHours);
+        const due = !site.lastCrawlAt || now - site.lastCrawlAt > hours * 3600 * 1000;
         if (due) await runPipeline(site.id);
       }
     } catch {

@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, asc } from "drizzle-orm";
 import { db, sites, pages, clusters, opportunities, existingLinks } from "@/lib/db";
 import { requireUser, claimUnownedSites, userOwnsSite } from "@/lib/session";
+import { getUserPlan, allowedRefreshHours } from "@/lib/plans";
 
-async function authorize(siteId: number): Promise<boolean> {
+async function authorize(siteId: number): Promise<{ id: string } | null> {
   const user = await requireUser();
-  if (!user) return false;
+  if (!user) return null;
   await claimUnownedSites(user.id);
-  return userOwnsSite(user.id, siteId);
+  return (await userOwnsSite(user.id, siteId)) ? user : null;
 }
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const siteId = Number(id);
-  if (!(await authorize(siteId))) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const user = await authorize(siteId);
+  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const [site] = await db.select().from(sites).where(eq(sites.id, siteId)).limit(1);
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -43,6 +45,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   return NextResponse.json({
     site,
+    plan: getUserPlan(user.id),
     pages: sitePages,
     clusters: siteClusters.map((c) => ({ ...c, terms: JSON.parse(c.terms) as string[] })),
     opportunities: opps.sort((a, b) => b.score - a.score),
@@ -53,7 +56,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const siteId = Number(id);
-  if (!(await authorize(siteId))) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const user = await authorize(siteId);
+  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await req.json().catch(() => null);
   const updates: Partial<{
     mode: string;
@@ -65,7 +69,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (body?.mode === "approved" || body?.mode === "auto") updates.mode = body.mode;
   if (typeof body?.name === "string" && body.name.trim()) updates.name = body.name.trim();
   if (typeof body?.autoRefresh === "boolean") updates.autoRefresh = body.autoRefresh ? 1 : 0;
-  if ([6, 24, 72, 168].includes(body?.refreshHours)) updates.refreshHours = body.refreshHours;
+  if (allowedRefreshHours(getUserPlan(user.id)).includes(body?.refreshHours)) {
+    updates.refreshHours = body.refreshHours;
+  }
   if (Number.isInteger(body?.maxLinksPerPage) && body.maxLinksPerPage >= 1 && body.maxLinksPerPage <= 20) {
     updates.maxLinksPerPage = body.maxLinksPerPage;
   }

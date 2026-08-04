@@ -6,6 +6,64 @@ import type { CrawledPage } from "./crawler";
 const MODEL = process.env.LINKAGENT_MODEL || "claude-opus-5";
 const BATCH_SIZE = 20;
 const MAX_REFINED = 120;
+const MAX_CLUSTER_PAGES = 250;
+
+export interface AICluster {
+  label: string;
+  members: number[]; // page indexes
+}
+
+// Asks Claude to organize the site's pages into topical clusters. The
+// similarity-graph fallback tends to lump a whole site into one blob, and
+// a model that reads titles does far better. Returns null without an API
+// key or on any failure, and the caller falls back to the heuristic.
+export async function clusterWithAI(
+  pagesInfo: { path: string; title: string; terms: string[] }[],
+): Promise<AICluster[] | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (pagesInfo.length < 4) return null;
+
+  const client = new Anthropic();
+  const items = pagesInfo.slice(0, MAX_CLUSTER_PAGES).map((p, id) => ({
+    id,
+    path: p.path,
+    title: p.title.slice(0, 120),
+    terms: p.terms.slice(0, 5),
+  }));
+
+  try {
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: 6000,
+      system:
+        "You organize a website's pages into topical clusters for internal linking strategy. " +
+        "Given pages with id, path, title and top terms, group them into tight topical clusters. " +
+        "Aim for clusters a human content strategist would recognize: one per real topic, typically 4 to 15 clusters for a full site. " +
+        "Every cluster gets a short label of 2 to 4 plain words. A page belongs to at most one cluster. " +
+        "Leave a page out entirely if it fits nowhere. Never invent ids. " +
+        'Reply with ONLY a JSON array: [{"label": string, "ids": number[]}]. No other text.',
+      messages: [{ role: "user", content: JSON.stringify(items) }],
+    });
+    const textBlock = res.content.find((c) => c.type === "text");
+    const raw = textBlock && textBlock.type === "text" ? textBlock.text : "[]";
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    const parsed: { label?: unknown; ids?: unknown }[] = JSON.parse(jsonMatch ? jsonMatch[0] : "[]");
+
+    const assigned = new Set<number>();
+    const clusters: AICluster[] = [];
+    for (const c of parsed) {
+      if (typeof c.label !== "string" || !Array.isArray(c.ids)) continue;
+      const members = c.ids
+        .filter((n): n is number => Number.isInteger(n) && n >= 0 && n < items.length && !assigned.has(n as number));
+      if (members.length < 2) continue;
+      members.forEach((m) => assigned.add(m));
+      clusters.push({ label: c.label.trim().slice(0, 60), members });
+    }
+    return clusters.length >= 2 ? clusters : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface RefinedOpportunity extends RawOpportunity {
   source: "heuristic" | "ai";

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, sites } from "@/lib/db";
 import { runPipeline } from "@/lib/pipeline";
 import { requireUser, claimUnownedSites, userOwnsSite } from "@/lib/session";
+import { getUserPlan, clampRefreshHours } from "@/lib/plans";
 
 export const maxDuration = 300;
 
@@ -26,7 +27,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (typeof body?.autopilot === "boolean") {
     await db
       .update(sites)
-      .set({ mode: body.autopilot ? "auto" : "approved", autoRefresh: body.autopilot ? 1 : 0 })
+      .set({
+        mode: body.autopilot ? "auto" : "approved",
+        autoRefresh: body.autopilot ? 1 : 0,
+        refreshHours: clampRefreshHours(getUserPlan(user.id), 24),
+      })
       .where(eq(sites.id, siteId));
   }
   await runPipeline(siteId);
