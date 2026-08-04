@@ -51,7 +51,7 @@ export default function PerformancePage() {
 
   if (error) {
     return (
-      <div className="card max-w-2xl p-8 text-center">
+      <div className="card p-10 text-center">
         <p className="text-sm text-muted">Could not load search data.</p>
         <button onClick={loadData} className="btn btn-ghost btn-sm mt-3">
           Try again
@@ -74,7 +74,7 @@ export default function PerformancePage() {
 
   if (!data.configured) {
     return (
-      <div className="card max-w-2xl p-6">
+      <div className="card p-6">
         <h3 className="text-[15.5px] font-medium">Google Search Console is not set up yet</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
           To pull organic traffic data, this deployment needs Google OAuth credentials. Create an OAuth client in
@@ -88,7 +88,7 @@ export default function PerformancePage() {
 
   if (!data.connected) {
     return (
-      <div className="card max-w-2xl p-8 text-center">
+      <div className="card p-10 text-center">
         <h3 className="text-[17px] font-medium">See what your internal links actually do</h3>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
           Connect Google Search Console and LinkAgent compares clicks, impressions, CTR and position from before and
@@ -104,7 +104,7 @@ export default function PerformancePage() {
 
   if (!data.property) {
     return (
-      <div className="card max-w-2xl overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="border-b border-line px-5 py-4">
           <h3 className="text-[15.5px] font-medium">Pick the Search Console property for this site</h3>
           <p className="mt-0.5 text-sm text-muted">No automatic match was found. Choose the right one.</p>
