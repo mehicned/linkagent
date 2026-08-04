@@ -187,11 +187,21 @@ function groupSections(paths: string[]): SiteSection[] {
   return sections.sort((a, b) => b.count - a.count);
 }
 
-// A path belongs to its longest matching section prefix. It is excluded only
-// if that exact section was excluded, so excluding /companies does not drag
-// /companies/regions down with it.
+// Sections that never deserve internal link equity. A page in one of these
+// only survives the crawl if the user saw it as a section during setup and
+// deliberately kept it. Mirrors the list in the setup UI.
+const JUNK_SEGMENTS = new Set([
+  "tag", "tags", "author", "authors", "search", "cart", "checkout", "account",
+  "login", "register", "feed", "privacy", "privacy-policy", "terms",
+  "terms-of-service", "terms-and-conditions", "cookie-policy", "cookies",
+  "legal", "disclaimer", "thank-you", "wp-json", "wp-content",
+]);
+
+// A path belongs to its longest matching section prefix and follows the
+// user's include or exclude choice for it. Paths that match NO known
+// section (tag archives and other junk often live outside the sitemap, so
+// they were never offered as a choice) fall back to the junk blocklist.
 export function makeExclusionCheck(sections: SiteSection[], excluded: string[]): (path: string) => boolean {
-  if (!excluded.length) return () => false;
   const excludedSet = new Set(excluded);
   const prefixes = sections
     .map((s) => s.prefix)
@@ -203,7 +213,7 @@ export function makeExclusionCheck(sections: SiteSection[], excluded: string[]):
         return excludedSet.has(prefix);
       }
     }
-    return false;
+    return norm.split("/").some((seg) => JUNK_SEGMENTS.has(seg.toLowerCase()));
   };
 }
 
