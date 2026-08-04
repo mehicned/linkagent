@@ -1,15 +1,74 @@
 "use client";
 
-import { useState } from "react";
-import { useSiteData } from "../site-shared";
+import { useMemo, useState } from "react";
+import { useSiteData, type PageRow } from "../site-shared";
+
+type SortKey = "path" | "words" | "in" | "out" | "depth" | "cluster";
+
+// First click sorts with the column's natural direction; clicking the same
+// column again flips it.
+const DEFAULT_DIR: Record<SortKey, 1 | -1> = {
+  path: 1,
+  words: -1,
+  in: 1, // ascending surfaces under-linked pages, the ones needing work
+  out: -1,
+  depth: -1,
+  cluster: 1,
+};
 
 export default function PagesPage() {
   const { data } = useSiteData();
   const { pages, clusters } = data;
-  const clusterById = new Map(clusters.map((c) => [c.id, c]));
-  const [sort, setSort] = useState<"path" | "in" | "words">("in");
-  const sorted = [...pages].sort((a, b) =>
-    sort === "path" ? a.path.localeCompare(b.path) : sort === "in" ? a.inDegree - b.inDegree : b.wordCount - a.wordCount,
+  const clusterById = useMemo(() => new Map(clusters.map((c) => [c.id, c])), [clusters]);
+  const [sortKey, setSortKey] = useState<SortKey>("in");
+  const [dir, setDir] = useState<1 | -1>(DEFAULT_DIR.in);
+
+  function clickSort(key: SortKey) {
+    if (key === sortKey) {
+      setDir((d) => (d === 1 ? -1 : 1));
+    } else {
+      setSortKey(key);
+      setDir(DEFAULT_DIR[key]);
+    }
+  }
+
+  const sorted = useMemo(() => {
+    const value = (p: PageRow): string | number => {
+      switch (sortKey) {
+        case "path":
+          return p.path;
+        case "words":
+          return p.wordCount;
+        case "in":
+          return p.inDegree;
+        case "out":
+          return p.outDegree;
+        case "depth":
+          return p.depth ?? Number.MAX_SAFE_INTEGER;
+        case "cluster":
+          return (p.clusterId && clusterById.get(p.clusterId)?.label) || "￿";
+      }
+    };
+    return [...pages].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      const cmp = typeof va === "string" ? va.localeCompare(vb as string) : va - (vb as number);
+      return cmp * dir;
+    });
+  }, [pages, sortKey, dir, clusterById]);
+
+  const Th = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
+    <th
+      className={`cursor-pointer whitespace-nowrap px-4 py-3 select-none transition-colors hover:text-body ${
+        sortKey === k ? "text-body" : ""
+      }`}
+      onClick={() => clickSort(k)}
+    >
+      {children}
+      <span className={`ml-1 ${sortKey === k ? "text-accent" : "text-faint"}`}>
+        {sortKey === k ? (dir === 1 ? "↑" : "↓") : "↕"}
+      </span>
+    </th>
   );
 
   return (
@@ -17,12 +76,12 @@ export default function PagesPage() {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-faint">
-            <Th onClick={() => setSort("path")}>Page</Th>
-            <Th onClick={() => setSort("words")}>Words</Th>
-            <Th onClick={() => setSort("in")}>In</Th>
-            <th className="px-4 py-3">Out</th>
-            <th className="px-4 py-3">Depth</th>
-            <th className="px-4 py-3">Cluster</th>
+            <Th k="path">Page</Th>
+            <Th k="words">Words</Th>
+            <Th k="in">In</Th>
+            <Th k="out">Out</Th>
+            <Th k="depth">Depth</Th>
+            <Th k="cluster">Cluster</Th>
           </tr>
         </thead>
         <tbody>
@@ -52,13 +111,5 @@ export default function PagesPage() {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function Th({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <th className="cursor-pointer px-4 py-3 select-none hover:text-muted" onClick={onClick}>
-      {children} ↕
-    </th>
   );
 }
