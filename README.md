@@ -46,7 +46,7 @@ GET /api/map/pk_xxx?p=/page   -> { rules: [...] }  (what the script uses)
 You need a Postgres database. A free [Neon](https://neon.tech) project works great.
 
 ```bash
-git clone <repo>
+git clone https://github.com/mehicned/linkagent
 cd linkagent
 npm install
 cp .env.example .env   # set DATABASE_URL and BETTER_AUTH_SECRET

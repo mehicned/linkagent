@@ -15,7 +15,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </Link>
           <nav className="flex items-center gap-4 text-sm text-muted">
             <a
-              href="https://github.com"
+              href="https://github.com/mehicned/linkagent"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-body transition-colors flex items-center gap-1.5"
