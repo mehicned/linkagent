@@ -873,15 +873,33 @@ interface GscData {
 
 function Performance({ siteId }: { siteId: number }) {
   const [data, setData] = useState<GscData | null>(null);
+  const [error, setError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const res = await fetch(`/api/gsc/data?siteId=${siteId}`);
-    if (res.ok) setData(await res.json());
+    setError(false);
+    try {
+      const res = await fetch(`/api/gsc/data?siteId=${siteId}`);
+      if (res.ok) setData(await res.json());
+      else setError(true);
+    } catch {
+      setError(true);
+    }
   }, [siteId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  if (error) {
+    return (
+      <div className="card max-w-2xl p-8 text-center">
+        <p className="text-sm text-muted">Could not load search data.</p>
+        <button onClick={loadData} className="btn btn-ghost btn-sm mt-3">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   async function pickProperty(property: string) {
     await fetch(`/api/sites/${siteId}`, {
