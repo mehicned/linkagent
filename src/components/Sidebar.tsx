@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
+import { SITE_SUBNAV } from "@/components/siteNav";
 import { useSession, signOut } from "@/lib/auth-client";
 
 interface SiteRow {
@@ -11,6 +12,7 @@ interface SiteRow {
   name: string;
   host: string;
   status: string;
+  suggested: number;
 }
 
 export function Favicon({ host, className = "h-4 w-4" }: { host: string; className?: string }) {
@@ -92,17 +94,43 @@ export function Sidebar() {
         {sites.map((s) => {
           const active = pathname.startsWith(`/sites/${s.id}`);
           return (
-            <Link
-              key={s.id}
-              href={`/sites/${s.id}`}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                active ? "bg-panel2 text-body font-medium" : "text-muted hover:bg-panel2/60 hover:text-body"
-              }`}
-            >
-              <Favicon host={s.host} className="h-4 w-4" />
-              <span className="flex-1 truncate">{s.name}</span>
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[s.status] ?? "bg-faint"}`} />
-            </Link>
+            <div key={s.id}>
+              <Link
+                href={`/sites/${s.id}`}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  active ? "text-body font-medium" : "text-muted hover:bg-panel2/60 hover:text-body"
+                }`}
+              >
+                <Favicon host={s.host} className="h-4 w-4" />
+                <span className="flex-1 truncate">{s.name}</span>
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[s.status] ?? "bg-faint"}`} />
+              </Link>
+              {active && s.status === "ready" && (
+                <div className="mb-1 ml-3 space-y-0.5 border-l border-line pl-2.5">
+                  {SITE_SUBNAV.map((item) => {
+                    const href = item.slug ? `/sites/${s.id}/${item.slug}` : `/sites/${s.id}`;
+                    const current = item.slug ? pathname.startsWith(href) : pathname === href;
+                    return (
+                      <Link
+                        key={item.slug}
+                        href={href}
+                        className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                          current ? "bg-panel2 text-body font-medium" : "text-muted hover:bg-panel2/60 hover:text-body"
+                        }`}
+                      >
+                        {item.icon}
+                        <span className="flex-1">{item.label}</span>
+                        {item.slug === "" && s.suggested > 0 && (
+                          <span className="num rounded-full bg-accent/15 px-1.5 py-0.5 text-[10.5px] font-medium text-accent">
+                            {s.suggested}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
         {sites.length === 0 && <p className="px-3 py-2 text-xs text-faint">No sites yet.</p>}
