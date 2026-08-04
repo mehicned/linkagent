@@ -290,26 +290,18 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3">
-          {splitIndex >= 0 && (
-            <span className="chip">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              script live
-            </span>
-          )}
-          <div className="flex gap-1.5">
-            {RANGES.map((r) => (
-              <button
-                key={r.days}
-                onClick={() => setRange(r.days)}
-                className={`chip num transition-colors ${
-                  range === r.days ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex gap-1.5">
+          {RANGES.map((r) => (
+            <button
+              key={r.days}
+              onClick={() => setRange(r.days)}
+              className={`chip num transition-colors ${
+                range === r.days ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -335,6 +327,17 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
               vectorEffect="non-scaling-stroke"
             />
           ))}
+          {/* everything after the script went live sits on a lime wash, so
+              the before/after divide reads instantly */}
+          {splitIndex >= 0 && (
+            <rect
+              x={x(splitIndex)}
+              y={0}
+              width={W - x(splitIndex)}
+              height={H - PAD_BOTTOM}
+              fill="rgba(132, 204, 22, 0.06)"
+            />
+          )}
           {!inverted && (
             <polyline
               points={`0,${H - PAD_BOTTOM} ${points} ${W},${H - PAD_BOTTOM}`}
@@ -346,12 +349,13 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
           {splitIndex >= 0 && (
             <line
               x1={x(splitIndex)}
-              y1={PAD_TOP - 6}
+              y1={0}
               x2={x(splitIndex)}
               y2={H - PAD_BOTTOM}
               stroke="#84cc16"
-              strokeWidth="1"
-              strokeDasharray="4 3"
+              strokeWidth="1.6"
+              strokeDasharray="5 3"
+              opacity="0.9"
               vectorEffect="non-scaling-stroke"
             />
           )}
@@ -370,6 +374,25 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
             </>
           )}
         </svg>
+
+        {/* the exact go-live date, pinned to the marker line */}
+        {splitIndex >= 0 && splitDate && (
+          <div
+            className="pointer-events-none absolute top-0 z-[5]"
+            style={{
+              left: `${(splitIndex / (daily.length - 1)) * 100}%`,
+              transform: `translateX(${splitIndex / (daily.length - 1) > 0.7 ? "-100%" : "0%"}) translateY(-40%)`,
+            }}
+          >
+            <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-2 py-0.5 text-[10.5px] font-semibold text-ink shadow-lg">
+              <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="currentColor">
+                <path d="M6.7 1 2.5 7h2.8L5 11l4.5-6H6.6L6.7 1Z" />
+              </svg>
+              Script live ·{" "}
+              {new Date(splitDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </span>
+          </div>
+        )}
 
         {/* y-axis labels overlaid so the svg can stretch freely */}
         <div className="pointer-events-none absolute inset-0">
