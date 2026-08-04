@@ -75,6 +75,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (Number.isInteger(body?.maxLinksPerPage) && body.maxLinksPerPage >= 1 && body.maxLinksPerPage <= 20) {
     updates.maxLinksPerPage = body.maxLinksPerPage;
   }
+  if (
+    typeof body?.gscProperty === "string" &&
+    (body.gscProperty.startsWith("sc-domain:") || /^https?:\/\//.test(body.gscProperty))
+  ) {
+    (updates as Record<string, unknown>).gscProperty = body.gscProperty;
+  }
   if (!Object.keys(updates).length) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   await db.update(sites).set(updates).where(eq(sites.id, siteId));
   return NextResponse.json({ ok: true });

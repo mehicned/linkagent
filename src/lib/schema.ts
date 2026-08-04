@@ -26,6 +26,19 @@ export const sites = pgTable("sites", {
   // own site. This is the anchor date for before and after SEO comparisons.
   firstPingAt: bigint("first_ping_at", { mode: "number" }),
   lastPingAt: bigint("last_ping_at", { mode: "number" }),
+  // Google Search Console property serving this site's data, like
+  // "sc-domain:example.com" or "https://www.example.com/".
+  gscProperty: text("gsc_property"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+});
+
+// One Google Search Console grant per user covers all their sites.
+export const gscConnections = pgTable("gsc_connections", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  refreshToken: text("refresh_token").notNull(),
+  accessToken: text("access_token"),
+  accessTokenExpiresAt: bigint("access_token_expires_at", { mode: "number" }),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
