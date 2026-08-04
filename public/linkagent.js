@@ -1,4 +1,4 @@
-/*! LinkAgent v1 | MIT | injects approved internal links by wrapping existing text, never rewriting content */
+/*! Linkagent v1 | MIT | injects approved internal links by wrapping existing text, never rewriting content */
 (function () {
   "use strict";
   var doc = document;

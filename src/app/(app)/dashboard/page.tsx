@@ -92,7 +92,7 @@ export default function DashboardPage() {
         <div className="card mt-10 p-12 text-center">
           <h2 className="text-[17px] font-medium">Add your first site</h2>
           <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted">
-            Paste a URL above. LinkAgent scans the structure first, and you pick which sections get
+            Paste a URL above. Linkagent scans the structure first, and you pick which sections get
             linked before the full crawl runs.
           </p>
         </div>

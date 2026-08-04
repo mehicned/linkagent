@@ -1,6 +1,6 @@
-# Contributing to LinkAgent
+# Contributing to Linkagent
 
-Thanks for wanting to help. LinkAgent is MIT licensed and contributions of any size are welcome.
+Thanks for wanting to help. Linkagent is MIT licensed and contributions of any size are welcome.
 
 ## Getting set up
 

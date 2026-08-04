@@ -5,7 +5,7 @@ export interface CrawledPage extends ExtractedPage {
   path: string;
 }
 
-const UA = "LinkAgentBot/0.1 (+https://github.com/linkagent/linkagent; internal linking analysis)";
+const UA = "LinkagentBot/0.1 (+https://github.com/linkagent/linkagent; internal linking analysis)";
 const FETCH_TIMEOUT = 12000;
 const CONCURRENCY = 6;
 

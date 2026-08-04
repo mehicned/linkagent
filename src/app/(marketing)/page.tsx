@@ -83,7 +83,7 @@ export default function Landing() {
             on <span className="text-accent">autopilot</span>.
           </h1>
           <p className="mt-5 max-w-lg text-muted text-[17px] leading-relaxed">
-            LinkAgent crawls your site, finds the internal links you are missing, and adds them with
+            Linkagent crawls your site, finds the internal links you are missing, and adds them with
             one tiny script. Anchors come from text already on your pages.
           </p>
 

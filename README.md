@@ -1,6 +1,6 @@
-# LinkAgent
+# Linkagent
 
-Open source internal linking agent. LinkAgent crawls your site, understands your content, and finds the internal links you are missing. You approve them, add one tiny script, and the links go live.
+Open source internal linking agent. Linkagent crawls your site, understands your content, and finds the internal links you are missing. You approve them, add one tiny script, and the links go live.
 
 No lock-in. One Next.js app plus any Postgres database. Runs on Vercel, your own server, or your laptop.
 
@@ -75,7 +75,7 @@ Deploying to Vercel: push to GitHub, import the repo, set the env vars, done. Th
 - **Approved only** (default): the script only serves links you approved.
 - **Autopilot**: new suggestions go live right away. You can still reject any link and it disappears on the next map refresh.
 
-## What LinkAgent will not do
+## What Linkagent will not do
 
 - It will not invent anchor text. Anchors are always phrases that already exist on the source page.
 - It will not stuff links. Caps by page length, per-target limits, and anchor variety are enforced when the map is built.

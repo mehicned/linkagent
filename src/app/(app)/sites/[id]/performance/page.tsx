@@ -91,7 +91,7 @@ export default function PerformancePage() {
       <div className="card p-10 text-center">
         <h3 className="text-[17px] font-medium">See what your internal links actually do</h3>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
-          Connect Google Search Console and LinkAgent compares clicks, impressions, CTR and position from before and
+          Connect Google Search Console and Linkagent compares clicks, impressions, CTR and position from before and
           after the script went live on your site.
         </p>
         <a href={`/api/gsc/connect?siteId=${siteId}`} className="btn btn-primary mt-5">
