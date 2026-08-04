@@ -153,6 +153,15 @@ export default function PerformancePage() {
             invert
           />
         </div>
+      ) : data.firstPingAt ? (
+        <div className="card px-5 py-4 text-sm text-muted">
+          Your script went live on{" "}
+          <span className="font-medium text-body">
+            {new Date(data.firstPingAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}
+          </span>
+          . Search Console data lags about two days, so the after picture starts filling in shortly. The go-live
+          marker on the chart shows where your data ends today.
+        </div>
       ) : (
         <div className="card px-5 py-4 text-sm text-muted">
           Search data is connected. The before and after comparison starts once the script is live on your site.
@@ -257,7 +266,19 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
 
   const points = daily.map((d, i) => `${x(i).toFixed(1)},${y(d[metric]).toFixed(1)}`).join(" ");
   const splitDate = firstPingAt ? new Date(firstPingAt).toISOString().slice(0, 10) : null;
-  const splitIndex = splitDate ? daily.findIndex((d) => d.date >= splitDate) : -1;
+  // Where the go-live marker sits. Search Console data lags about two days,
+  // so a fresh install lands past the last data point; clamp it to the
+  // right edge instead of hiding it.
+  let splitIndex = -1;
+  let splitPending = false;
+  if (splitDate) {
+    if (splitDate > daily[daily.length - 1].date) {
+      splitIndex = daily.length - 1;
+      splitPending = true;
+    } else {
+      splitIndex = daily.findIndex((d) => d.date >= splitDate);
+    }
+  }
 
   const gridLines = [0.25, 0.5, 0.75].map((r) => ({
     yPos: H - PAD_BOTTOM - r * (H - PAD_TOP - PAD_BOTTOM),
@@ -329,7 +350,7 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
           ))}
           {/* everything after the script went live sits on a lime wash, so
               the before/after divide reads instantly */}
-          {splitIndex >= 0 && (
+          {splitIndex >= 0 && !splitPending && (
             <rect
               x={x(splitIndex)}
               y={0}
@@ -390,6 +411,7 @@ function GscChart({ daily: fullDaily, firstPingAt }: { daily: GscDaily[]; firstP
               </svg>
               Script live ·{" "}
               {new Date(splitDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {splitPending ? " →" : ""}
             </span>
           </div>
         )}
