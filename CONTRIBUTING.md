@@ -1,6 +1,6 @@
 # Contributing to Linkagent
 
-Thanks for wanting to help. Linkagent is MIT licensed and contributions of any size are welcome.
+Thanks for wanting to help. Linkagent is AGPL-3.0 licensed (the embed script stays MIT) and contributions of any size are welcome.
 
 ## Getting set up
 

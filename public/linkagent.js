@@ -1,4 +1,4 @@
-/*! Linkagent v1 | MIT | injects approved internal links by wrapping existing text, never rewriting content */
+/*! Linkagent embed v1 | MIT (this script only; the platform is AGPL-3.0) | injects approved internal links by wrapping existing text, never rewriting content */
 (function () {
   "use strict";
   var doc = document;

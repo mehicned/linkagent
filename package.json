@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Open source internal linking agent. Crawls your site, finds link opportunities, and injects them with one tiny script.",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

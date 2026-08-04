@@ -88,4 +88,8 @@ Next.js 16, React 19, Drizzle ORM, Postgres (Neon serverless driver), Better Aut
 
 ## License
 
-MIT
+AGPL-3.0. Use it, self-host it, modify it, audit every line. If you offer a modified version as a service to others,
+the AGPL requires you to open source your changes too, which keeps the project honest for everyone.
+
+The embed script (`public/linkagent.js`), the part that runs on your website, is MIT licensed so there is never any
+license question about your own site.
