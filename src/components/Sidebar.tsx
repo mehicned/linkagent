@@ -60,7 +60,7 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-panel lg:flex">
       <div className="flex h-14 items-center border-b border-line px-4">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+        <Link href="/dashboard" className="flex items-center gap-1.5">
           <Logo className="h-5 w-5 text-accent" />
           <span className="font-[family-name:var(--font-display)] font-semibold text-[15px] tracking-tight">
             LinkAgent

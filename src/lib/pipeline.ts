@@ -61,12 +61,9 @@ export async function runPipeline(siteId: number): Promise<void> {
       if (fromPath && toPath) decisions.set(`${fromPath}>${toPath}`, o.status);
     }
 
-    // Fresh slate on every run.
-    await db.delete(pages).where(eq(pages.siteId, siteId));
-    await db.delete(existingLinks).where(eq(existingLinks.siteId, siteId));
-    await db.delete(clusters).where(eq(clusters.siteId, siteId));
-    await db.delete(opportunities).where(eq(opportunities.siteId, siteId));
-
+    // Everything is computed in memory BEFORE any old data is deleted, so
+    // live sites keep serving their current link map through almost the
+    // entire re-crawl. The delete-and-insert swap at the end takes seconds.
     const analysis = await analyzePages(crawled);
 
     // Map URLs to page indexes to resolve the internal link graph.
@@ -121,6 +118,42 @@ export async function runPipeline(siteId: number): Promise<void> {
       finalClusters.forEach((c, ci) => c.members.forEach((m) => (clusterOfPage[m] = ci)));
     }
 
+    // The existing in-text link graph, index based. Database ids do not
+    // exist yet; rows are materialized after the swap below.
+    const edgeSet = new Set<string>();
+    const existingAnchorsByPage = new Map<number, Set<string>>();
+    const dedupedEdges: { from: number; to: number; anchor: string }[] = [];
+    contentEdges.forEach(([from, to], i) => {
+      const key = `${from}>${to}`;
+      const anchorNorm = normalizePhrase(edgeAnchors[i]);
+      if (anchorNorm) {
+        if (!existingAnchorsByPage.has(from)) existingAnchorsByPage.set(from, new Set());
+        existingAnchorsByPage.get(from)!.add(anchorNorm);
+      }
+      if (edgeSet.has(key)) return;
+      edgeSet.add(key);
+      dedupedEdges.push({ from, to, anchor: edgeAnchors[i] });
+    });
+
+    // Find, then optionally refine, opportunities. Still all in memory.
+    const raw = await findOpportunities(
+      crawled,
+      analysis.vectors,
+      analysis.topTermsPerPage,
+      stats.inDegree,
+      edgeSet,
+      existingAnchorsByPage,
+      site.maxLinksPerPage,
+    );
+    const refined = await refineWithAI(raw, crawled);
+
+    // The swap: everything above is computed, so live maps only blink for
+    // the few seconds these deletes and inserts take.
+    await db.delete(pages).where(eq(pages.siteId, siteId));
+    await db.delete(existingLinks).where(eq(existingLinks.siteId, siteId));
+    await db.delete(clusters).where(eq(clusters.siteId, siteId));
+    await db.delete(opportunities).where(eq(opportunities.siteId, siteId));
+
     // Insert clusters first to get their DB ids.
     const clusterDbIds: number[] = [];
     for (const c of finalClusters) {
@@ -166,36 +199,15 @@ export async function runPipeline(siteId: number): Promise<void> {
       });
     }
 
-    // Insert the existing in-text link graph.
-    const edgeSet = new Set<string>();
-    const existingAnchorsByPage = new Map<number, Set<string>>();
-    const linkRows: { siteId: number; fromPageId: number; toPageId: number; anchor: string }[] = [];
-    contentEdges.forEach(([from, to], i) => {
-      const key = `${from}>${to}`;
-      const anchorNorm = normalizePhrase(edgeAnchors[i]);
-      if (anchorNorm) {
-        if (!existingAnchorsByPage.has(from)) existingAnchorsByPage.set(from, new Set());
-        existingAnchorsByPage.get(from)!.add(anchorNorm);
-      }
-      if (edgeSet.has(key)) return;
-      edgeSet.add(key);
-      linkRows.push({ siteId, fromPageId: pageDbIds[from], toPageId: pageDbIds[to], anchor: edgeAnchors[i] });
-    });
+    const linkRows = dedupedEdges.map((e) => ({
+      siteId,
+      fromPageId: pageDbIds[e.from],
+      toPageId: pageDbIds[e.to],
+      anchor: e.anchor,
+    }));
     for (let start = 0; start < linkRows.length; start += 100) {
       await db.insert(existingLinks).values(linkRows.slice(start, start + 100));
     }
-
-    // Find, then optionally refine, opportunities.
-    const raw = await findOpportunities(
-      crawled,
-      analysis.vectors,
-      analysis.topTermsPerPage,
-      stats.inDegree,
-      edgeSet,
-      existingAnchorsByPage,
-      site.maxLinksPerPage,
-    );
-    const refined = await refineWithAI(raw, crawled);
 
     const now = Date.now();
     const oppRows = refined.map((o) => {

@@ -7,7 +7,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <>
       <header className="border-b border-line sticky top-0 z-40 bg-ink/85 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-5 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href="/" className="flex items-center gap-1.5 group">
             <Logo className="h-5 w-5 text-accent" />
             <span className="font-[family-name:var(--font-display)] font-semibold text-[15.5px] tracking-tight">
               LinkAgent
