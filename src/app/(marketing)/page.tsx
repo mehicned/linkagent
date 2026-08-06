@@ -72,10 +72,11 @@ export default function Landing() {
 
   return (
     <div>
-      <section className="pt-20 pb-12">
+      <section className="grid items-center gap-12 pt-20 pb-12 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div>
         <div className="max-w-2xl">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.14em] text-faint">
-            Open source · MIT · Self hosted
+            Open source · AGPL · Self hosted
           </p>
           <h1 className="text-[44px] md:text-[52px] font-semibold tracking-[-0.03em] leading-[1.06]">
             Internal linking
@@ -136,6 +137,9 @@ export default function Landing() {
         )}
 
         {phase === "done" && result && <ScanTeaser result={result} />}
+        </div>
+
+        <HeroVisual />
       </section>
 
       <section className="grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-3 mb-8">
@@ -165,6 +169,83 @@ export default function Landing() {
         <span className="h-1 w-1 rounded-full bg-line2" />
         <span>Works without an AI key</span>
       </section>
+    </div>
+  );
+}
+
+// A composed illustration of the product's own review cards. Pure markup,
+// no images, always in sync with the design system.
+function HeroVisual() {
+  return (
+    <div className="relative hidden select-none lg:block" aria-hidden>
+      <div className="absolute -inset-8 rounded-full bg-accent/5 blur-3xl" />
+
+      {/* found-links chip */}
+      <div className="absolute -top-5 right-6 z-20 flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[11.5px] font-semibold text-ink shadow-lg">
+        <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor">
+          <path d="M6.7 1 2.5 7h2.8L5 11l4.5-6H6.6L6.7 1Z" />
+        </svg>
+        41 links found
+      </div>
+
+      {/* back card: already live */}
+      <div className="card relative z-0 -rotate-2 p-4 opacity-80">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="chip">
+              <span className="h-1.5 w-1.5 rounded-full bg-good" />
+              Live
+            </span>
+            <span className="mono text-faint">/blog/heat-pump-costs</span>
+            <span className="text-faint">→</span>
+            <span className="mono text-body">/guides/rebates</span>
+          </div>
+        </div>
+        <p className="mt-2.5 rounded-lg border border-line bg-ink px-3 py-2 text-[13px] leading-relaxed text-muted">
+          Most households qualify for <mark className="anchor">state rebate programs</mark> that cover part of the
+          install.
+        </p>
+      </div>
+
+      {/* front card: pending suggestion */}
+      <div className="card relative z-10 -mt-4 ml-8 rotate-1 border-line2 p-4 shadow-2xl">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="chip">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Suggested
+            </span>
+            <span className="mono text-faint">/blog/winter-energy-tips</span>
+            <span className="text-faint">→</span>
+            <span className="mono text-body">/guides/heat-pumps</span>
+          </div>
+        </div>
+        <p className="mt-2.5 rounded-lg border border-line bg-ink px-3 py-2 text-[13px] leading-relaxed text-muted">
+          Switching to a <mark className="anchor">modern heat pump</mark> cuts heating bills for most homes.
+        </p>
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <div className="h-1 w-12 overflow-hidden rounded-full bg-line">
+              <div className="h-full w-[78%] rounded-full bg-accent" />
+            </div>
+            <span className="mono text-[10.5px] text-muted">78</span>
+          </div>
+          <div className="flex gap-1.5">
+            <span className="btn btn-primary btn-sm pointer-events-none">Approve</span>
+            <span className="btn btn-ghost btn-sm pointer-events-none">Reject</span>
+          </div>
+        </div>
+      </div>
+
+      {/* injected-on-site strip */}
+      <div className="card relative z-0 -mt-3 ml-2 rotate-[-1deg] p-4 opacity-90">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.14em] text-faint">On your site</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+          ...cold snaps drive bills up fast, and a{" "}
+          <span className="border-b border-accent pb-px text-body">modern heat pump</span> is the cheapest fix over
+          time...
+        </p>
+      </div>
     </div>
   );
 }
