@@ -67,7 +67,7 @@ Deploying to Vercel: push to GitHub, import the repo, set the env vars, done. Th
 | `BETTER_AUTH_SECRET` | required | Random string that signs auth sessions. |
 | `ANTHROPIC_API_KEY` | none | Enables AI anchor review. Works fine without it. |
 | `LINKAGENT_MODEL` | `claude-opus-5` | Model used for anchor review. |
-| `LINKAGENT_MAX_PAGES` | `200` | Crawl cap per site. |
+| `LINKAGENT_MAX_PAGES` | `500` | Crawl cap per site. |
 | `CRON_SECRET` | none | Protects the cron endpoint on Vercel. |
 
 ## Serving modes

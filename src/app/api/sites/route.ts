@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "That does not look like a valid host." }, { status: 400 });
   }
 
-  const maxPages = Number(process.env.LINKAGENT_MAX_PAGES) || 200;
+  const maxPages = Number(process.env.LINKAGENT_MAX_PAGES) || 500;
   const [site] = await db
     .insert(sites)
     .values({

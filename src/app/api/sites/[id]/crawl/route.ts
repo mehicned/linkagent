@@ -5,7 +5,7 @@ import { runPipeline } from "@/lib/pipeline";
 import { requireUser, claimUnownedSites, userOwnsSite } from "@/lib/session";
 import { getUserPlan, clampRefreshHours } from "@/lib/plans";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

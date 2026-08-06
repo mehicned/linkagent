@@ -4,7 +4,7 @@ import { db, sites } from "@/lib/db";
 import { runPipeline } from "@/lib/pipeline";
 import { getUserPlan, clampRefreshHours } from "@/lib/plans";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 // Hit daily by Vercel Cron (see vercel.json). Re-crawls every site with
 // auto refresh turned on whose last crawl is older than its interval, so

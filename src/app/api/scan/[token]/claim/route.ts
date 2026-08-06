@@ -19,7 +19,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ token: st
     if (existing && existing.userId === user.id) return NextResponse.json({ siteId: existing.id });
   }
 
-  const maxPages = Number(process.env.LINKAGENT_MAX_PAGES) || 200;
+  const maxPages = Number(process.env.LINKAGENT_MAX_PAGES) || 500;
   const [site] = await db
     .insert(sites)
     .values({
