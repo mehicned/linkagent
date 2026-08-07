@@ -86,6 +86,8 @@ export default function DashboardPage() {
       </div>
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
 
+      <ProspectScanner />
+
       {sites === null ? (
         <p className="mt-16 text-center text-sm text-faint">Loading...</p>
       ) : sites.length === 0 ? (
@@ -115,6 +117,90 @@ export default function DashboardPage() {
               </div>
             </Link>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Generate a shareable scan report for any site, without adding it to your
+// dashboard. Built for outreach: scan a prospect, send them the link.
+function ProspectScanner() {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<{ token: string; host: string; oppCount: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
+
+  async function scan(e: React.FormEvent) {
+    e.preventDefault();
+    if (!url.trim() || busy) return;
+    setBusy(true);
+    setError("");
+    setReport(null);
+    try {
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Scan failed.");
+      else setReport({ token: data.token, host: data.host, oppCount: data.oppCount });
+    } catch {
+      setError("Scan failed. Try again.");
+    }
+    setBusy(false);
+  }
+
+  const reportUrl = report ? `${typeof window !== "undefined" ? window.location.origin : ""}/scan/${report.token}` : "";
+
+  return (
+    <div className="card mt-8 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-medium">Scan any site, share the report</h2>
+          <p className="mt-0.5 text-sm text-muted">
+            Runs the free teaser scan on any domain and gives you a shareable report link. The site is not added to
+            your dashboard.
+          </p>
+        </div>
+        <form onSubmit={scan} className="flex w-full max-w-md gap-2">
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="prospect-site.com"
+            className="card flex-1 rounded-lg px-3.5 py-2 text-sm outline-none placeholder:text-faint focus:border-line2"
+            spellCheck={false}
+          />
+          <button type="submit" disabled={busy || !url.trim()} className="btn btn-ghost">
+            {busy ? "Scanning..." : "Scan"}
+          </button>
+        </form>
+      </div>
+      {error && <p className="mt-3 text-sm text-bad">{error}</p>}
+      {report && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-ink px-4 py-3">
+          <p className="text-sm">
+            <span className="num font-semibold text-accent">{report.oppCount}</span>{" "}
+            <span className="text-muted">missing links found on</span>{" "}
+            <span className="font-medium">{report.host}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <a href={`/scan/${report.token}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+              View report
+            </a>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(reportUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              }}
+              className="btn btn-primary btn-sm"
+            >
+              {copied ? "Link copied" : "Copy share link"}
+            </button>
+          </div>
         </div>
       )}
     </div>

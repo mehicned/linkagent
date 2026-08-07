@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, freeScans } from "@/lib/db";
+import { CopyLink } from "./CopyLink";
 
 // Shareable by link, never discoverable by search: these reports carry
 // other people's site data, so they stay out of every index.
@@ -38,7 +39,10 @@ export default async function ScanReportPage({ params }: { params: Promise<{ tok
 
   return (
     <div className="mx-auto max-w-2xl pt-14 pb-20">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-faint">Internal linking report</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-faint">Internal linking report</p>
+        <CopyLink />
+      </div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-[30px] font-semibold tracking-[-0.02em]">{scan.host}</h1>
         <div className="text-right">
