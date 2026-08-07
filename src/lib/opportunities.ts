@@ -1,4 +1,4 @@
-import { cosine, findPhraseInSentence, normalizePhrase, splitSentences, targetPhrases, cleanTitle, type Vec } from "./text";
+import { cosine, findPhraseInSentence, normalizePhrase, splitSentences, targetPhrases, cleanTitle, tokenize, type Vec } from "./text";
 import type { CrawledPage } from "./crawler";
 
 export interface RawOpportunity {
@@ -19,6 +19,7 @@ const MAX_INBOUND_PER_TARGET = 12;
 const MAX_ANCHOR_REPEAT_SHARE = 0.34; // same anchor for one target stays under about a third
 const COLLECTION_MIN_SIBLINGS = 6;
 const BOILERPLATE_PAGE_LIMIT = 2; // a sentence on more pages than this is template text
+const COMMON_TERM_PAGE_SHARE = 0.25; // a term in the top terms of this share of pages is site-generic
 
 // How many new links a page can absorb: based on its length, capped by the
 // site's own setting.
@@ -47,6 +48,9 @@ export async function findOpportunities(
   existingEdges: Set<string>, // "from>to" page indexes
   existingAnchorsByPage: Map<number, Set<string>>, // normalized anchors already linked on that page
   maxLinksPerPage = 6,
+  clusterOfPage: (number | null)[] = [],
+  isOrphan: boolean[] = [],
+  depth: (number | null)[] = [],
 ): Promise<RawOpportunity[]> {
   const n = pagesData.length;
   const sentencesPerPage = pagesData.map((p) => splitSentences(p.text).slice(0, 150));
@@ -59,6 +63,17 @@ export async function findOpportunities(
   const phrasesFirstWord = phrasesPerTarget.map((list) => list.map((p) => p.split(/\s+/)[0].toLowerCase()));
   const maxIn = Math.max(1, ...inDegree);
   const collectionOf = detectCollections(pagesData);
+
+  // Terms that dominate the whole site (the niche vocabulary itself, like
+  // "solar" on a solar site) make meaningless single-word anchors.
+  const termPageCount = new Map<string, number>();
+  for (const terms of topTermsPerPage) {
+    for (const t of terms) termPageCount.set(t, (termPageCount.get(t) ?? 0) + 1);
+  }
+  const isSiteGenericTerm = (term: string) => (termPageCount.get(term) ?? 0) > n * COMMON_TERM_PAGE_SHARE;
+
+  // Tokenized target titles for anchor-to-title overlap scoring.
+  const titleTokensPerTarget = pagesData.map((p) => new Set(tokenize(`${cleanTitle(p.title)} ${p.h1}`)));
 
   // Template sentences repeated across pages (footers baked into the body,
   // profile boilerplate) can never host a contextual link.
@@ -75,7 +90,15 @@ export async function findOpportunities(
     const phrases = phrasesPerTarget[to];
     if (!phrases.length) continue;
     const titleNorm = normalizePhrase(cleanTitle(pagesData[to].title) || pagesData[to].h1);
+    const titleTokens = titleTokensPerTarget[to];
     const targetIsItem = collectionOf[to] !== null;
+
+    // How much this target needs equity: few inbound links, orphaned, or
+    // buried deep in the click graph all raise the priority.
+    const inNeed = 1 - inDegree[to] / (maxIn + 1);
+    const orphanNeed = isOrphan[to] ? 0.35 : 0;
+    const depthNeed = depth[to] === null || (depth[to] as number) >= 4 ? 0.15 : 0;
+    const needBoost = Math.min(1, inNeed * 0.6 + orphanNeed + depthNeed);
 
     for (let from = 0; from < n; from++) {
       if (from === to) continue;
@@ -94,12 +117,20 @@ export async function findOpportunities(
       const fromSentencesLower = sentencesLower[from];
       const firstWords = phrasesFirstWord[to];
 
-      const contentBoost = Math.min(pagesData[from].wordCount / 1500, 1) * 0.1;
+      const contentBoost = Math.min(pagesData[from].wordCount / 1500, 1) * 0.08;
+      // Links inside the same topic cluster are the classic siloing play.
+      const clusterBoost =
+        clusterOfPage[from] !== null && clusterOfPage[from] !== undefined && clusterOfPage[from] === clusterOfPage[to]
+          ? 0.07
+          : 0;
 
       for (let si = 0; si < fromSentences.length; si++) {
         const sentence = fromSentences[si];
         const sentenceLower = fromSentencesLower[si];
         if (isBoilerplate(sentenceLower)) continue;
+        // Earlier placement carries more equity and matches the script,
+        // which links the first occurrence on the page.
+        const positionBoost = Math.max(0, 0.05 - (si / Math.max(fromSentences.length, 1)) * 0.05);
         for (let pi = 0; pi < phrases.length; pi++) {
           if (!sentenceLower.includes(firstWords[pi])) continue;
           const phrase = phrases[pi];
@@ -110,11 +141,26 @@ export async function findOpportunities(
           // A link to a specific entity page must use that entity's name,
           // never a generic phrase that could describe its competitors too.
           if (targetIsItem && !titleNorm.includes(norm)) continue;
+
+          const anchorTokens = tokenize(norm);
           const words = norm.split(" ").length;
-          const phraseScore =
-            Math.min(words / 3, 1) * 0.7 + (titleNorm.includes(norm) || norm.includes(titleNorm) ? 0.3 : 0.12);
-          const needBoost = 1 - inDegree[to] / (maxIn + 1);
-          const score = sim * 0.45 + phraseScore * 0.3 + needBoost * 0.15 + contentBoost;
+          // Single-word anchors must be distinctive: in the target's title
+          // and not part of the site's ambient vocabulary.
+          if (words === 1) {
+            const term = anchorTokens[0] ?? norm;
+            if (term.length < 6 || !titleTokens.has(term) || isSiteGenericTerm(term)) continue;
+          }
+
+          // Anchor quality: length up to three words, plus how much of the
+          // anchor actually describes the target page.
+          const overlap =
+            anchorTokens.length > 0
+              ? anchorTokens.filter((t) => titleTokens.has(t)).length / anchorTokens.length
+              : 0;
+          const phraseScore = Math.min(words / 3, 1) * 0.55 + overlap * 0.45;
+
+          const score =
+            sim * 0.38 + phraseScore * 0.27 + needBoost * 0.15 + contentBoost + clusterBoost + positionBoost;
           if (!best || score > best.score) {
             best = {
               fromIndex: from,
@@ -122,7 +168,7 @@ export async function findOpportunities(
               anchor: found,
               sentence,
               score,
-              reason: `similarity ${(sim * 100).toFixed(0)}%, target has ${inDegree[to]} inbound link${inDegree[to] === 1 ? "" : "s"}`,
+              reason: `similarity ${(sim * 100).toFixed(0)}%, target has ${inDegree[to]} inbound link${inDegree[to] === 1 ? "" : "s"}${isOrphan[to] ? ", orphan" : ""}`,
               entityTitleNorm: targetIsItem ? titleNorm : null,
             };
           }
@@ -137,6 +183,8 @@ export async function findOpportunities(
   const usedCapacity = new Map<number, number>();
   const inboundCount = new Map<number, number>();
   const anchorUse = new Map<string, number>(); // `${to}|${normAnchor}`
+  const sourceAnchorUsed = new Set<string>(); // `${from}|${normAnchor}`
+  const pickedPairs = new Set<string>();
   const picked: RawOpportunity[] = [];
 
   for (const c of candidates) {
@@ -144,11 +192,20 @@ export async function findOpportunities(
     if ((usedCapacity.get(c.fromIndex) ?? 0) >= cap) continue;
     const inbound = inboundCount.get(c.toIndex) ?? 0;
     if (inbound >= MAX_INBOUND_PER_TARGET) continue;
-    const anchorKey = `${c.toIndex}|${normalizePhrase(c.anchor)}`;
+    // A back-and-forth pair of new links between two pages reads reciprocal
+    // and manufactured; keep only the stronger direction.
+    if (pickedPairs.has(`${c.toIndex}>${c.fromIndex}`)) continue;
+    const norm = normalizePhrase(c.anchor);
+    // The same words on one page must never link to two different targets.
+    const sourceKey = `${c.fromIndex}|${norm}`;
+    if (sourceAnchorUsed.has(sourceKey)) continue;
+    const anchorKey = `${c.toIndex}|${norm}`;
     const sameAnchor = anchorUse.get(anchorKey) ?? 0;
     if (inbound >= 2 && (sameAnchor + 1) / (inbound + 1) > MAX_ANCHOR_REPEAT_SHARE) continue;
 
     picked.push(c);
+    pickedPairs.add(`${c.fromIndex}>${c.toIndex}`);
+    sourceAnchorUsed.add(sourceKey);
     usedCapacity.set(c.fromIndex, (usedCapacity.get(c.fromIndex) ?? 0) + 1);
     inboundCount.set(c.toIndex, inbound + 1);
     anchorUse.set(anchorKey, sameAnchor + 1);

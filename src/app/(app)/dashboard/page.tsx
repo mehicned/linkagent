@@ -86,7 +86,7 @@ export default function DashboardPage() {
       </div>
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
 
-      <ProspectScanner />
+      <ProspectScanner siteHosts={new Set((sites ?? []).map((s) => s.host))} />
 
       {sites === null ? (
         <p className="mt-16 text-center text-sm text-faint">Loading...</p>
@@ -110,16 +110,52 @@ export default function DashboardPage() {
                 <StatusChip status={s.status} />
               </div>
               <p className="mt-0.5 text-xs text-faint truncate mono">{s.url}</p>
-              <div className="mt-5 flex gap-6">
-                <Stat label="Pages" value={s.status === "crawling" ? s.pagesFound : s.pages} />
-                <Stat label="Suggested" value={s.suggested} />
-                <Stat label="Approved" value={s.approved} />
+              <div className="mt-5 flex items-end justify-between gap-3">
+                <div className="flex gap-6">
+                  <Stat label="Pages" value={s.status === "crawling" ? s.pagesFound : s.pages} />
+                  <Stat label="Suggested" value={s.suggested} />
+                  <Stat label="Approved" value={s.approved} />
+                </div>
+                {s.status === "ready" && <ShareSiteButton siteId={s.id} />}
               </div>
             </Link>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// Copies a shareable report link for an already-crawled site, right from
+// its dashboard card.
+function ShareSiteButton({ siteId }: { siteId: number }) {
+  const [state, setState] = useState<"idle" | "busy" | "copied">("idle");
+  return (
+    <button
+      onClick={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state === "busy") return;
+        setState("busy");
+        try {
+          const res = await fetch(`/api/sites/${siteId}/share-report`, { method: "POST" });
+          const data = await res.json();
+          if (res.ok) {
+            await navigator.clipboard.writeText(`${window.location.origin}/scan/${data.token}`);
+            setState("copied");
+            setTimeout(() => setState("idle"), 1800);
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+        setState("idle");
+      }}
+      className="btn btn-ghost btn-sm shrink-0"
+      title="Copy a shareable report link"
+    >
+      {state === "copied" ? "Copied" : "Share"}
+    </button>
   );
 }
 
@@ -132,10 +168,10 @@ interface RecentScan {
   createdAt: number;
 }
 
-// Generate a shareable scan report for any site, without adding it to your
-// dashboard. Built for outreach: scan a prospect, send them the link.
-// Past reports stay listed here, so nothing is ever scanned twice.
-function ProspectScanner() {
+// Outreach tool: scan a site you do NOT manage and get a shareable report
+// link. Your own projects share directly from their cards, so this list
+// only shows prospect scans, one per host.
+function ProspectScanner({ siteHosts }: { siteHosts: Set<string> }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<{ token: string; host: string; oppCount: number } | null>(null);
@@ -146,8 +182,19 @@ function ProspectScanner() {
 
   const loadRecent = useCallback(async () => {
     const res = await fetch("/api/scan/recent");
-    if (res.ok) setRecent(await res.json());
-  }, []);
+    if (!res.ok) return;
+    const rows: RecentScan[] = await res.json();
+    // One row per host, newest first, and projects share from their own
+    // cards instead of this list.
+    const seen = new Set<string>();
+    setRecent(
+      rows.filter((r) => {
+        if (siteHosts.has(r.host) || seen.has(r.host)) return false;
+        seen.add(r.host);
+        return true;
+      }),
+    );
+  }, [siteHosts]);
 
   useEffect(() => {
     loadRecent();
@@ -187,10 +234,10 @@ function ProspectScanner() {
     <div className="card mt-8 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-medium">Scan any site, share the report</h2>
+          <h2 className="text-[15px] font-medium">Scan a prospect site</h2>
           <p className="mt-0.5 text-sm text-muted">
-            Runs the free teaser scan on any domain and gives you a shareable report link. The site is not added to
-            your dashboard.
+            Quick teaser scan of a site you do not manage, with a shareable report link. Your own sites share straight
+            from their cards above.
           </p>
         </div>
         <form onSubmit={scan} className="flex w-full max-w-md gap-2">

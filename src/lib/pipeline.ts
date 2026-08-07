@@ -144,6 +144,9 @@ export async function runPipeline(siteId: number): Promise<void> {
       edgeSet,
       existingAnchorsByPage,
       site.maxLinksPerPage,
+      clusterOfPage,
+      stats.isOrphan,
+      stats.depth,
     );
     const refined = await refineWithAI(raw, crawled);
 

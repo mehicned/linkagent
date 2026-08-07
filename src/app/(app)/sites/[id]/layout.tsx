@@ -79,6 +79,7 @@ export default function SiteLayout({
           </a>
         </div>
         <div className="flex items-center gap-2">
+          {status === "ready" && <ShareReportButton siteId={site.id} />}
           {status === "ready" && (
             <button onClick={recrawl} className="btn btn-ghost btn-sm">
               Re-crawl
@@ -142,6 +143,36 @@ export default function SiteLayout({
         </SiteContext.Provider>
       )}
     </div>
+  );
+}
+
+// Creates or refreshes the site's shareable report and copies the link.
+function ShareReportButton({ siteId }: { siteId: number }) {
+  const [state, setState] = useState<"idle" | "busy" | "copied">("idle");
+  return (
+    <button
+      onClick={async () => {
+        if (state === "busy") return;
+        setState("busy");
+        try {
+          const res = await fetch(`/api/sites/${siteId}/share-report`, { method: "POST" });
+          const data = await res.json();
+          if (res.ok) {
+            await navigator.clipboard.writeText(`${window.location.origin}/scan/${data.token}`);
+            setState("copied");
+            setTimeout(() => setState("idle"), 1800);
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+        setState("idle");
+      }}
+      className="btn btn-ghost btn-sm"
+      title="Copy a shareable report link for this site"
+    >
+      {state === "copied" ? "Link copied" : state === "busy" ? "..." : "Share report"}
+    </button>
   );
 }
 

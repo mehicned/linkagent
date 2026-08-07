@@ -47,7 +47,7 @@ export function AuthForm({ mode }: { mode: "signup" | "login" }) {
   const other = scanToken ? `?scan=${scanToken}` : "";
 
   return (
-    <div className="mx-auto mt-20 w-full max-w-sm">
+    <div className="mx-auto flex min-h-[calc(100vh-11rem)] w-full max-w-sm flex-col justify-center">
       <h1 className="text-[24px] font-semibold tracking-[-0.02em]">
         {mode === "signup" ? "Create your account" : "Welcome back"}
       </h1>

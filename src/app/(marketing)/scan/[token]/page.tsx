@@ -57,7 +57,9 @@ export default async function ScanReportPage({ params }: { params: Promise<{ tok
             <span className="num font-semibold text-accent">{scan.oppCount}</span>{" "}
             <span className="font-medium">missing internal links found</span>{" "}
             <span className="text-muted">
-              in just {scan.pagesScanned} of about {scan.totalUrls.toLocaleString()} pages
+              {scan.pagesScanned >= scan.totalUrls
+                ? `across ${scan.totalUrls.toLocaleString()} pages`
+                : `in just ${scan.pagesScanned} of about ${scan.totalUrls.toLocaleString()} pages`}
             </span>
           </p>
         </div>

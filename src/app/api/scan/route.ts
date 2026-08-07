@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
     inDegree,
     edgeSet,
     existingAnchorsByPage,
+    6,
+    analysis.clusterOfPage,
   );
 
   // Show the most impressive examples: longest anchors first, one per
