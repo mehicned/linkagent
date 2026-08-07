@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "https://linkagent-mehicneds-projects.vercel.app"),
   title: "Linkagent · Internal linking on autopilot",
   description:
     "Open source internal linking agent. Crawl your site, get scored link opportunities with natural anchor text, and ship them with one tiny script.",
