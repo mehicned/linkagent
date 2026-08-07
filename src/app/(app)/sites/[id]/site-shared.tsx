@@ -54,6 +54,7 @@ export interface Opp {
   source: string;
   reason: string;
   status: string;
+  clicks: number;
 }
 export interface SiteData {
   site: Site;
@@ -62,6 +63,7 @@ export interface SiteData {
   clusters: ClusterRow[];
   opportunities: Opp[];
   existingLinkCount: number;
+  clicksTotal: number;
 }
 
 // The site layout owns fetching and polling; sub-pages consume this.

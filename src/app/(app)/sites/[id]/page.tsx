@@ -203,6 +203,11 @@ function OppCard({
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-faint">
         <span>
           Links to <span className="text-muted">{to?.title || to?.path}</span>
+          {opp.clicks > 0 && (
+            <span className="ml-2 text-good">
+              · <span className="num font-medium">{opp.clicks}</span> click{opp.clicks === 1 ? "" : "s"} (30d)
+            </span>
+          )}
         </span>
         <span>{opp.reason}</span>
       </div>

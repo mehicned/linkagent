@@ -40,7 +40,7 @@ export default function SiteLayout({
     return <div className="pt-24 text-center text-faint text-sm">Loading...</div>;
   }
 
-  const { site, pages, opportunities, existingLinkCount } = data;
+  const { site, pages, opportunities, existingLinkCount, clicksTotal } = data;
   const working = status === "queued" || status === "crawling" || status === "analyzing";
   const suggested = opportunities.filter((o) => o.status === "suggested").length;
   const approved = opportunities.filter((o) => o.status === "approved").length;
@@ -129,12 +129,13 @@ export default function SiteLayout({
             </div>
           )}
 
-          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-6">
             <BigStat label="Pages" value={pages.length} />
             <BigStat label="In-text links" value={existingLinkCount} />
             <BigStat label="Orphan pages" value={orphans} tone={orphans > 0 ? "warn" : undefined} />
             <BigStat label="Suggested" value={suggested} tone="accent" />
             <BigStat label="Approved" value={approved} tone="good" />
+            <BigStat label="Clicks · 30d" value={clicksTotal} tone={clicksTotal > 0 ? "good" : undefined} />
           </div>
 
           <div className="pt-6">{children}</div>

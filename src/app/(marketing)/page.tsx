@@ -303,9 +303,14 @@ function ScanTeaser({ result }: { result: ScanResult }) {
             "The full crawl covers your whole site and finds much more."
           )}
         </p>
-        <Link href={`/signup?scan=${result.token}`} className="btn btn-primary">
-          Get every link free
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/scan/${result.token}`} className="btn btn-ghost">
+            Shareable report
+          </Link>
+          <Link href={`/signup?scan=${result.token}`} className="btn btn-primary">
+            Get every link free
+          </Link>
+        </div>
       </div>
     </div>
   );

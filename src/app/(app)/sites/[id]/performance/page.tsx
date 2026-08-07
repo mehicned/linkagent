@@ -176,7 +176,18 @@ export default function PerformancePage() {
 
       <GscChart daily={daily} firstPingAt={data.firstPingAt ?? null} />
 
-      <p className="mono text-xs text-faint">{data.property}</p>
+      <div className="flex items-center justify-between">
+        <p className="mono text-xs text-faint">{data.property}</p>
+        <a
+          href={`/api/sites/${siteId}/share-image`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm"
+          title="A branded image of this chart, ready to post"
+        >
+          Share this win
+        </a>
+      </div>
     </div>
   );
 }

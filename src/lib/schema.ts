@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, bigint, doublePrecision, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, bigint, doublePrecision, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const sites = pgTable("sites", {
   id: serial("id").primaryKey(),
@@ -121,6 +121,24 @@ export const freeScans = pgTable("free_scans", {
   claimedSiteId: integer("claimed_site_id"),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
+
+// Daily click counts on injected links, reported by the embed script via a
+// beacon. No cookies, no visitor identity, just counters.
+export const linkClicks = pgTable(
+  "link_clicks",
+  {
+    id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull(),
+    day: text("day").notNull(), // YYYY-MM-DD
+    fromPath: text("from_path").notNull(),
+    toPath: text("to_path").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("clicks_unique_idx").on(t.siteId, t.day, t.fromPath, t.toPath),
+    index("clicks_site_idx").on(t.siteId),
+  ],
+);
 
 export type Site = typeof sites.$inferSelect;
 export type Page = typeof pages.$inferSelect;

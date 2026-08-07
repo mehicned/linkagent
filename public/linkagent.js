@@ -118,6 +118,18 @@
     }
   }
 
+  // Anonymous click counting on injected links: one beacon per click, no
+  // cookies, no visitor data. Powers the clicks report in the dashboard.
+  doc.addEventListener("click", function (e) {
+    var t = e.target;
+    var a = t && t.closest ? t.closest("a[data-la]") : null;
+    if (!a) return;
+    try {
+      var body = location.pathname + "|" + (a.getAttribute("href") || "");
+      if (navigator.sendBeacon) navigator.sendBeacon(api + "/api/hit/" + encodeURIComponent(key), body);
+    } catch (err) {}
+  }, true);
+
   var lastPath = null;
   function run() {
     var p = location.pathname.replace(/\/+$/, "") || "/";

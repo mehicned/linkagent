@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, asc } from "drizzle-orm";
-import { db, sites, pages, clusters, opportunities, existingLinks } from "@/lib/db";
+import { eq, asc, and, gte } from "drizzle-orm";
+import { db, sites, pages, clusters, opportunities, existingLinks, linkClicks } from "@/lib/db";
 import { requireUser, claimUnownedSites, userOwnsSite } from "@/lib/session";
 import { getUserPlan, allowedRefreshHours } from "@/lib/plans";
 
@@ -43,13 +43,34 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     .from(existingLinks)
     .where(eq(existingLinks.siteId, siteId));
 
+  // Clicks on injected links over the last 30 days, total and per link.
+  const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+  const clickRows = await db
+    .select()
+    .from(linkClicks)
+    .where(and(eq(linkClicks.siteId, siteId), gte(linkClicks.day, cutoff)));
+  let clicksTotal = 0;
+  const clicksByPair = new Map<string, number>();
+  for (const c of clickRows) {
+    clicksTotal += c.count;
+    const k = `${c.fromPath}>${c.toPath}`;
+    clicksByPair.set(k, (clicksByPair.get(k) ?? 0) + c.count);
+  }
+  const pathById = new Map(sitePages.map((p) => [p.id, p.path]));
+
   return NextResponse.json({
     site,
     plan: getUserPlan(user.id),
     pages: sitePages,
     clusters: siteClusters.map((c) => ({ ...c, terms: JSON.parse(c.terms) as string[] })),
-    opportunities: opps.sort((a, b) => b.score - a.score),
+    opportunities: opps
+      .sort((a, b) => b.score - a.score)
+      .map((o) => ({
+        ...o,
+        clicks: clicksByPair.get(`${pathById.get(o.fromPageId)}>${pathById.get(o.toPageId)}`) ?? 0,
+      })),
     existingLinkCount: linkRows.length,
+    clicksTotal,
   });
 }
 
