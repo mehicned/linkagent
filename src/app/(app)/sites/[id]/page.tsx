@@ -60,15 +60,25 @@ export default function OpportunitiesPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1.5">
-          {(["all", "suggested", "approved", "rejected"] as const).map((f) => (
+          {(
+            [
+              ["all", "bg-body", ""],
+              ["suggested", "bg-accent", "text-accent"],
+              ["approved", "bg-good", "text-good"],
+              ["rejected", "bg-bad", "text-bad"],
+            ] as const
+          ).map(([f, dot, activeText]) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`chip capitalize transition-colors ${
-                filter === f ? "border-line2 bg-panel2 text-body" : "hover:border-line2 hover:text-body"
+                filter === f
+                  ? `border-line2 bg-panel2 ${activeText || "text-body"}`
+                  : "hover:border-line2 hover:text-body"
               }`}
             >
-              {f} · {counts[f]}
+              <span className={`h-1.5 w-1.5 rounded-full ${dot} ${counts[f] === 0 ? "opacity-30" : ""}`} />
+              {f} · <span className="num">{counts[f]}</span>
             </button>
           ))}
         </div>
