@@ -111,6 +111,9 @@ export const opportunities = pgTable(
 export const freeScans = pgTable("free_scans", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),
+  // Set when a signed-in user ran the scan, so their dashboard can list
+  // their own reports. Anonymous landing-page scans have no owner.
+  userId: text("user_id"),
   url: text("url").notNull(),
   host: text("host").notNull(),
   totalUrls: integer("total_urls").notNull().default(0),

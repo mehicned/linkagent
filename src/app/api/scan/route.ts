@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { db, freeScans } from "@/lib/db";
 import { discoverStructure, crawlSite, crawlUrls } from "@/lib/crawler";
 import { stripWww } from "@/lib/extract";
 import { analyzePages } from "@/lib/analyze";
 import { findOpportunities } from "@/lib/opportunities";
 import { normalizePhrase } from "@/lib/text";
+import { requireUser } from "@/lib/session";
 
 export const maxDuration = 120;
 
 const TEASER_PAGES = 20;
 const SAMPLE_COUNT = 3;
+const CACHE_DAYS = 7;
 
 // Anonymous teaser scan for the landing page: quick structure read plus a
 // shallow crawl of a handful of pages, heuristic opportunities only. The
@@ -28,6 +31,30 @@ export async function POST(req: NextRequest) {
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return NextResponse.json({ error: "Only http and https sites work." }, { status: 400 });
+  }
+
+  // A recent scan of the same host is reused instead of crawling again.
+  const user = await requireUser();
+  const host = stripWww(parsed.hostname);
+  const [cached] = await db
+    .select()
+    .from(freeScans)
+    .where(and(eq(freeScans.host, host), gte(freeScans.createdAt, Date.now() - CACHE_DAYS * 86400_000)))
+    .orderBy(desc(freeScans.id))
+    .limit(1);
+  if (cached) {
+    if (user && !cached.userId) {
+      await db.update(freeScans).set({ userId: user.id }).where(and(eq(freeScans.id, cached.id), isNull(freeScans.userId)));
+    }
+    return NextResponse.json({
+      token: cached.token,
+      host: cached.host,
+      totalUrls: cached.totalUrls,
+      pagesScanned: cached.pagesScanned,
+      oppCount: cached.oppCount,
+      samples: JSON.parse(cached.samples),
+      cached: true,
+    });
   }
 
   const { total, sections } = await discoverStructure(parsed.origin);
@@ -115,8 +142,9 @@ export async function POST(req: NextRequest) {
   await db.insert(freeScans)
     .values({
       token,
+      userId: user?.id ?? null,
       url: parsed.origin,
-      host: stripWww(parsed.hostname),
+      host,
       totalUrls: Math.max(total, crawled.length),
       pagesScanned: crawled.length,
       oppCount: opps.length,

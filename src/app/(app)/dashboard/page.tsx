@@ -123,14 +123,35 @@ export default function DashboardPage() {
   );
 }
 
+interface RecentScan {
+  token: string;
+  host: string;
+  oppCount: number;
+  pagesScanned: number;
+  totalUrls: number;
+  createdAt: number;
+}
+
 // Generate a shareable scan report for any site, without adding it to your
 // dashboard. Built for outreach: scan a prospect, send them the link.
+// Past reports stay listed here, so nothing is ever scanned twice.
 function ProspectScanner() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<{ token: string; host: string; oppCount: number } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [recent, setRecent] = useState<RecentScan[]>([]);
+  const [showAll, setShowAll] = useState(false);
+
+  const loadRecent = useCallback(async () => {
+    const res = await fetch("/api/scan/recent");
+    if (res.ok) setRecent(await res.json());
+  }, []);
+
+  useEffect(() => {
+    loadRecent();
+  }, [loadRecent]);
 
   async function scan(e: React.FormEvent) {
     e.preventDefault();
@@ -146,14 +167,21 @@ function ProspectScanner() {
       });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Scan failed.");
-      else setReport({ token: data.token, host: data.host, oppCount: data.oppCount });
+      else {
+        setReport({ token: data.token, host: data.host, oppCount: data.oppCount });
+        loadRecent();
+      }
     } catch {
       setError("Scan failed. Try again.");
     }
     setBusy(false);
   }
 
-  const reportUrl = report ? `${typeof window !== "undefined" ? window.location.origin : ""}/scan/${report.token}` : "";
+  async function copyLink(token: string) {
+    await navigator.clipboard.writeText(`${window.location.origin}/scan/${token}`);
+    setCopied(token);
+    setTimeout(() => setCopied(null), 1600);
+  }
 
   return (
     <div className="card mt-8 p-5">
@@ -180,7 +208,7 @@ function ProspectScanner() {
       </div>
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
       {report && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-ink px-4 py-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3">
           <p className="text-sm">
             <span className="num font-semibold text-accent">{report.oppCount}</span>{" "}
             <span className="text-muted">missing links found on</span>{" "}
@@ -190,17 +218,47 @@ function ProspectScanner() {
             <a href={`/scan/${report.token}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
               View report
             </a>
-            <button
-              onClick={async () => {
-                await navigator.clipboard.writeText(reportUrl);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1600);
-              }}
-              className="btn btn-primary btn-sm"
-            >
-              {copied ? "Link copied" : "Copy share link"}
+            <button onClick={() => copyLink(report.token)} className="btn btn-primary btn-sm">
+              {copied === report.token ? "Link copied" : "Copy share link"}
             </button>
           </div>
+        </div>
+      )}
+
+      {recent.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-[10.5px] font-medium uppercase tracking-[0.14em] text-faint">Your reports</p>
+          <div className="divide-y divide-line/60 rounded-lg border border-line">
+            {(showAll ? recent : recent.slice(0, 5)).map((s) => (
+              <div key={s.token} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                <div className="flex min-w-0 items-center gap-3 text-sm">
+                  <span className="truncate font-medium">{s.host}</span>
+                  <span className="num shrink-0 text-xs text-muted">{s.oppCount} links</span>
+                  <span className="num shrink-0 text-xs text-faint">
+                    {new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={`/scan/${s.token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-sm"
+                  >
+                    View
+                  </a>
+                  <button onClick={() => copyLink(s.token)} className="btn btn-ghost btn-sm">
+                    {copied === s.token ? "Copied" : "Copy link"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {recent.length > 5 && (
+            <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs text-faint hover:text-muted">
+              {showAll ? "Show fewer" : `Show all ${recent.length}`}
+            </button>
+          )}
         </div>
       )}
     </div>
