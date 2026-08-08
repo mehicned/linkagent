@@ -136,7 +136,7 @@ export default function SiteLayout({
             <BigStat label="Orphan pages" value={orphans} tone={orphans > 0 ? "warn" : undefined} />
             <BigStat label="Suggested" value={suggested} tone="accent" />
             <BigStat label="Approved" value={approved} tone="good" />
-            <BigStat label="Clicks · 30d" value={clicksTotal} tone={clicksTotal > 0 ? "good" : undefined} />
+            <BigStat label="Clicks · 30 days" value={clicksTotal} tone={clicksTotal > 0 ? "good" : undefined} />
           </div>
 
           <div className="pt-6">{children}</div>
